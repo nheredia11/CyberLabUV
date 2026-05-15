@@ -1,0 +1,17 @@
+[
+  {
+    "id": "s03-q1",
+    "pregunta": "El escenario web base parece util para una siguiente validacion",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s03-q2",
+    "pregunta": "El recorrido entre teoria y practica es entendible",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s03-q3",
+    "pregunta": "Que tema OWASP priorizarias",
+    "tipo": "texto_libre"
+  }
+]

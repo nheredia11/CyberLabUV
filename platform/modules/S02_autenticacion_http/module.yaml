@@ -1,0 +1,11 @@
+id: S02
+titulo: Autenticacion HTTP debil en entorno controlado
+orden: 2
+descripcion: Escenario para analizar debilidades de autenticacion y registro de intentos sobre una aplicacion de laboratorio propia.
+objetivos:
+  - Comprender debilidades basicas de autenticacion HTTP
+  - Observar intentos y retroalimentacion desde una interfaz controlada
+  - Proponer mitigaciones sin salir del entorno academico
+encuesta_obligatoria: true
+checkpoints_obligatorios: true
+comando_inicio: bash scripts/run-scenario.sh auth_http

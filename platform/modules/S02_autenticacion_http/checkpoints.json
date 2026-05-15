@@ -1,0 +1,20 @@
+[
+  {
+    "id": "s02-cp1",
+    "titulo": "Acceder a la interfaz del laboratorio",
+    "tipo": "confirmacion",
+    "evidencia": "URL local accesible"
+  },
+  {
+    "id": "s02-cp2",
+    "titulo": "Describir dos debilidades visibles",
+    "tipo": "texto",
+    "evidencia": "Lista corta de debilidades observadas"
+  },
+  {
+    "id": "s02-cp3",
+    "titulo": "Proponer mitigaciones",
+    "tipo": "texto",
+    "evidencia": "Minimo dos controles recomendados"
+  }
+]

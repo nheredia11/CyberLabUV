@@ -1,0 +1,21 @@
+services:
+  student-web:
+    image: alpine:3.21
+    container_name: valleseclab_student_web
+    command: ["sh", "-c", "sleep infinity"]
+    tty: true
+    stdin_open: true
+    networks:
+      - webapp_lab_net
+
+  webapp-lab:
+    image: bkimminich/juice-shop
+    container_name: valleseclab_webapp_lab
+    ports:
+      - "${WEBAPP_PORT:-3000}:3000"
+    networks:
+      - webapp_lab_net
+
+networks:
+  webapp_lab_net:
+    driver: bridge

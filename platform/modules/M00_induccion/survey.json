@@ -1,0 +1,17 @@
+[
+  {
+    "id": "q1",
+    "pregunta": "La introduccion al entorno fue clara",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "q2",
+    "pregunta": "Comprendo las reglas eticas del laboratorio",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "q3",
+    "pregunta": "Comentario abierto",
+    "tipo": "texto_libre"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "M00",
+    "titulo": "Induccion y reglas de uso",
+    "tipo": "fundacional",
+    "estado": "operativo",
+    "nivel": "Inicial",
+    "frameworks": ["Etica", "NIST Identify"],
+    "duracion_estimada": "15 min",
+    "ruta": "platform/modules/M00_induccion"
+  },
+  {
+    "id": "S01",
+    "titulo": "Reconocimiento de red y servicios",
+    "tipo": "escenario",
+    "estado": "configurado",
+    "nivel": "Basico",
+    "frameworks": ["MITRE ATT&CK T1046", "NIST Identify"],
+    "duracion_estimada": "35 min",
+    "ruta": "platform/modules/S01_reconocimiento"
+  },
+  {
+    "id": "S02",
+    "titulo": "Autenticacion HTTP debil en entorno controlado",
+    "tipo": "escenario",
+    "estado": "configurado",
+    "nivel": "Basico-Intermedio",
+    "frameworks": ["OWASP A07", "NIST Protect/Detect"],
+    "duracion_estimada": "40 min",
+    "ruta": "platform/modules/S02_autenticacion_http"
+  },
+  {
+    "id": "S03",
+    "titulo": "Aplicacion web vulnerable para practicas OWASP",
+    "tipo": "escenario",
+    "estado": "plantilla",
+    "nivel": "Intermedio",
+    "frameworks": ["OWASP Top 10", "MITRE ATT&CK Initial Access"],
+    "duracion_estimada": "50 min",
+    "ruta": "platform/modules/S03_web_basico"
+  }
+]

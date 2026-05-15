@@ -1,0 +1,11 @@
+id: S01
+titulo: Reconocimiento de red y servicios
+orden: 1
+descripcion: Escenario introductorio para identificar hosts y servicios visibles dentro de una red Docker aislada.
+objetivos:
+  - Identificar servicios expuestos dentro de un segmento aislado
+  - Relacionar hallazgos con el concepto de superficie de ataque
+  - Registrar evidencia tecnica en un formato repetible
+encuesta_obligatoria: true
+checkpoints_obligatorios: true
+comando_inicio: bash scripts/run-scenario.sh recon

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "cp1",
+    "titulo": "Leer reglas de uso",
+    "tipo": "confirmacion",
+    "evidencia": "Aceptacion de reglas"
+  },
+  {
+    "id": "cp2",
+    "titulo": "Identificar componentes del entorno",
+    "tipo": "texto",
+    "evidencia": "Breve descripcion de host, docker y escenarios"
+  },
+  {
+    "id": "cp3",
+    "titulo": "Confirmar readiness",
+    "tipo": "confirmacion",
+    "evidencia": "Estudiante listo para iniciar practicas"
+  }
+]

@@ -1,0 +1,28 @@
+services:
+  student-auth:
+    image: alpine:3.21
+    container_name: valleseclab_student_auth
+    command: ["sh", "-c", "sleep infinity"]
+    tty: true
+    stdin_open: true
+    networks:
+      - auth_lab_net
+
+  auth-lab:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: valleseclab_auth_lab
+    environment:
+      APP_TITLE: ValleSec Lab - Auth HTTP Lab
+      DEMO_USER: estudiante
+      DEMO_PASSWORD: laboratorio123
+      FLASK_ENV: production
+    ports:
+      - "${AUTH_HTTP_PORT:-8081}:5000"
+    networks:
+      - auth_lab_net
+
+networks:
+  auth_lab_net:
+    driver: bridge

@@ -1,0 +1,40 @@
+services:
+  student-recon:
+    image: nicolaka/netshoot
+    container_name: valleseclab_student_recon
+    command: ["sh", "-c", "sleep infinity"]
+    tty: true
+    stdin_open: true
+    networks:
+      - recon_net
+
+  target-web:
+    image: nginx:1.27-alpine
+    container_name: valleseclab_target_web
+    volumes:
+      - ./services/recon-landing:/usr/share/nginx/html:ro
+    networks:
+      - recon_net
+
+  target-login:
+    build:
+      context: ../auth_http/app
+      dockerfile: Dockerfile
+    container_name: valleseclab_target_login
+    environment:
+      APP_TITLE: ValleSec Lab Auth Demo
+      DEMO_USER: estudiante
+      DEMO_PASSWORD: laboratorio123
+    networks:
+      - recon_net
+
+  target-cache:
+    image: redis:7-alpine
+    container_name: valleseclab_target_cache
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - recon_net
+
+networks:
+  recon_net:
+    driver: bridge

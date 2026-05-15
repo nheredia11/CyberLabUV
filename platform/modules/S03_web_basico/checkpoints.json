@@ -1,0 +1,20 @@
+[
+  {
+    "id": "s03-cp1",
+    "titulo": "Levantar el escenario web",
+    "tipo": "confirmacion",
+    "evidencia": "Contenedor web disponible"
+  },
+  {
+    "id": "s03-cp2",
+    "titulo": "Relacionar el escenario con un riesgo OWASP",
+    "tipo": "texto",
+    "evidencia": "Riesgo y justificacion"
+  },
+  {
+    "id": "s03-cp3",
+    "titulo": "Registrar mejora pendiente",
+    "tipo": "texto",
+    "evidencia": "Backlog tecnico o pedagogico"
+  }
+]

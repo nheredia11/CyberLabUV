@@ -1,0 +1,17 @@
+[
+  {
+    "id": "s01-q1",
+    "pregunta": "La interfaz del escenario me ayudo a entender que activos estaban en juego",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s01-q2",
+    "pregunta": "Comprendi por que el reconocimiento precede a otros ejercicios del laboratorio",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s01-q3",
+    "pregunta": "Observaciones sobre dificultad o claridad",
+    "tipo": "texto_libre"
+  }
+]
