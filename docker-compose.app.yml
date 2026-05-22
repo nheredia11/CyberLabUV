@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      CYBERLAB_ROOT: /workspace
+      CYBERLAB_DB: /workspace/data/cyberlabuv.sqlite3
+      CORS_ORIGINS: http://localhost:8088
+      ALLOW_SCENARIO_COMMANDS: "false"
+    volumes:
+      - .:/workspace
+    ports:
+      - "8000:8000"
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8088:80"
+    depends_on:
+      - backend
