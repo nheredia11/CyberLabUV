@@ -113,6 +113,7 @@ export default function App() {
             userId={userId}
             setView={setView}
             setSelectedModule={setSelectedModule}
+            refreshDashboard={refreshDashboard}
           />
         )}
 
