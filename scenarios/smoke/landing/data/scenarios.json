@@ -1,0 +1,34 @@
+[
+  {
+    "id": "M00",
+    "nivel": "Inicial",
+    "estado": "Operativo",
+    "titulo": "Induccion y reglas de uso",
+    "descripcion": "Modulo fundacional para explicar etica, alcances y estructura del simulador.",
+    "accion": "Revisar modulo"
+  },
+  {
+    "id": "S01",
+    "nivel": "Basico",
+    "estado": "Configurado",
+    "titulo": "Reconocimiento de red y servicios",
+    "descripcion": "Segmento aislado con varios servicios para practicar observacion y registro de hallazgos.",
+    "accion": "bash scripts/run-scenario.sh recon"
+  },
+  {
+    "id": "S02",
+    "nivel": "Basico-Intermedio",
+    "estado": "Configurado",
+    "titulo": "Autenticacion HTTP debil",
+    "descripcion": "Interfaz propia del laboratorio para estudiar controles de autenticacion y registrar intentos.",
+    "accion": "bash scripts/run-scenario.sh auth_http"
+  },
+  {
+    "id": "S03",
+    "nivel": "Intermedio",
+    "estado": "Plantilla",
+    "titulo": "Laboratorio web OWASP",
+    "descripcion": "Base inicial para consolidar practicas de aplicacion web en una siguiente iteracion.",
+    "accion": "bash scripts/run-scenario.sh webapp"
+  }
+]

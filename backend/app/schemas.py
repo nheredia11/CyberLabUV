@@ -9,6 +9,9 @@ CheckpointStatus = Literal["pending", "done", "review"]
 class LoginRequest(BaseModel):
     email: str
 
+class GoogleLoginRequest(BaseModel):
+    credential: str
+
 class User(BaseModel):
     id: str
     name: str
@@ -38,6 +41,11 @@ class ScenarioActionIn(BaseModel):
     user_id: str = "ana"
     scenario_id: str
     action: Literal["start", "stop", "reset", "status"]
+
+class TerminalCommandIn(BaseModel):
+    user_id: str = "ana"
+    scenario_id: str
+    command: str = Field(min_length=2, max_length=500)
 
 class ApiMessage(BaseModel):
     status: str
