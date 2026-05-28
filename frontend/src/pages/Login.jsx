@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ShieldCheck,
+  Activity,
+  ArrowRight,
+  CheckCircle2,
   GraduationCap,
   LockKeyhole,
-  Activity,
-  Mail,
-  Loader2,
-  Info,
+  Moon,
+  ShieldCheck,
+  Sun,
+  TerminalSquare,
 } from 'lucide-react';
 import { api } from '../lib/api.js';
 
@@ -40,17 +42,22 @@ function loadGoogleScript() {
 function isGoogleConfigured() {
   return Boolean(
     GOOGLE_CLIENT_ID &&
-    GOOGLE_CLIENT_ID !== 'TU_CLIENT_ID_DE_GOOGLE' &&
-    GOOGLE_CLIENT_ID.trim().length > 20
+      GOOGLE_CLIENT_ID !== 'TU_CLIENT_ID_DE_GOOGLE' &&
+      GOOGLE_CLIENT_ID.trim().length > 20
   );
 }
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, theme = 'light', setTheme }) {
   const googleButtonRef = useRef(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const googleReady = isGoogleConfigured();
+  const isDark = theme === 'dark';
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     async function initGoogle() {
@@ -74,20 +81,27 @@ export default function Login({ onLogin }) {
               onLogin(result.user);
             } catch (err) {
               console.error(err);
-              setError(err.message || 'No fue posible iniciar sesión. Verifica que uses tu cuenta institucional.');
+              setError(
+                err.message ||
+                  'No fue posible iniciar sesión. Verifica que estés usando tu cuenta institucional.'
+              );
             } finally {
               setLoading(false);
             }
           },
         });
 
+        if (googleButtonRef.current) {
+          googleButtonRef.current.innerHTML = '';
+        }
+
         window.google.accounts.id.renderButton(googleButtonRef.current, {
-          theme: 'outline',
+          theme: isDark ? 'filled_black' : 'outline',
           size: 'large',
           text: 'signin_with',
           shape: 'pill',
           logo_alignment: 'left',
-          width: 320,
+          width: 360,
         });
       } catch (err) {
         console.error(err);
@@ -96,14 +110,23 @@ export default function Login({ onLogin }) {
     }
 
     initGoogle();
-  }, [googleReady, onLogin]);
+  }, [googleReady, onLogin, isDark]);
+
+  function toggleTheme() {
+    setTheme?.(isDark ? 'light' : 'dark');
+  }
 
   return (
-    <main className="login-page">
-      <section className="login-hero">
-        <div className="login-brand">
-          <div className="login-logo">
-            <ShieldCheck size={34} />
+    <main className={`login-page-modern ${isDark ? 'dark' : 'light'}`}>
+      <button className="login-theme-toggle" onClick={toggleTheme}>
+        {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        <span>{isDark ? 'Modo claro' : 'Modo oscuro'}</span>
+      </button>
+
+      <section className="login-left-panel">
+        <div className="login-brand-modern featured">
+          <div className="login-logo-modern">
+            <ShieldCheck size={38} />
           </div>
 
           <div>
@@ -112,77 +135,110 @@ export default function Login({ onLogin }) {
           </div>
         </div>
 
-        <h1>Entrenamiento práctico con laboratorios controlados</h1>
+        <div className="login-hero-copy minimal">
+          <span className="login-eyebrow">
+            <GraduationCap size={16} />
+            Plataforma académica de práctica
+          </span>
 
-        <p>
-          Accede con tu cuenta institucional para continuar tu ruta de aprendizaje,
-          ejecutar escenarios locales, registrar evidencias y recibir retroalimentación.
-        </p>
+          <h1>
+            Aprende ciberseguridad practicando en entornos controlados
+          </h1>
 
-        <div className="login-features">
+          <p>
+            Accede a escenarios guiados, registra evidencias de tu práctica y revisa
+            tu progreso dentro de una ruta de aprendizaje diseñada para apoyar el
+            curso de ciberseguridad.
+          </p>
+        </div>
+
+        <div className="login-feature-row">
           <div>
-            <GraduationCap size={20} />
-            <span>Ruta por módulos</span>
+            <TerminalSquare size={19} />
+            <span>Laboratorios reproducibles</span>
           </div>
 
           <div>
-            <LockKeyhole size={20} />
+            <Activity size={19} />
+            <span>Seguimiento del progreso</span>
+          </div>
+
+          <div>
+            <ShieldCheck size={19} />
             <span>Acceso institucional</span>
-          </div>
-
-          <div>
-            <Activity size={20} />
-            <span>Analíticas formativas</span>
           </div>
         </div>
       </section>
 
-      <section className="login-card">
-        <span className="badge">Acceso Universidad del Valle</span>
+      <section className="login-card-modern compact">
+        <div className="login-card-top">
+          <span className="institution-badge">
+            <ShieldCheck size={14} />
+            Universidad del Valle
+          </span>
 
-        <h2>Iniciar sesión</h2>
+          <h2>Iniciar sesión</h2>
 
-        <p className="muted">
-          Usa tu correo institucional para ingresar al laboratorio.
-        </p>
+          <p>
+            Ingresa con tu cuenta institucional para continuar tu ruta de aprendizaje.
+          </p>
+        </div>
 
-        {googleReady ? (
-          <div className="google-button-wrapper" ref={googleButtonRef} />
-        ) : (
-          <div className="google-pending-card">
-            <div className="google-pending-icon">
-              <Mail size={22} />
+        <div className="login-google-area">
+          {googleReady ? (
+            <div className="google-button-wrapper modern" ref={googleButtonRef} />
+          ) : (
+            <div className="google-pending-card modern">
+              <div>
+                <strong>Acceso institucional en configuración</strong>
+                <p>
+                  Falta configurar el Client ID de Google para habilitar el ingreso.
+                </p>
+              </div>
             </div>
-
-            <div>
-              <strong>Acceso institucional pendiente</strong>
-              <p>
-                Configura el Client ID de Google para habilitar el ingreso con
-                cuentas institucionales.
-              </p>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {loading && (
-          <div className="login-loading">
-            <Loader2 size={18} className="spin" />
-            Validando acceso institucional...
+          <div className="login-loading-modern">
+            <span className="loader-dot" />
+            Validando tu cuenta institucional...
           </div>
         )}
 
         {error && (
-          <div className="login-error">
+          <div className="login-error-modern">
             {error}
           </div>
         )}
 
-        <div className="login-helper clean">
-          <Info size={18} />
+        <div className="login-security-list minimal">
+          <div>
+            <CheckCircle2 size={17} />
+            <span>Validación con cuenta institucional.</span>
+          </div>
+
+          <div>
+            <CheckCircle2 size={17} />
+            <span>Progreso asociado al estudiante.</span>
+          </div>
+
+          <div>
+            <CheckCircle2 size={17} />
+            <span>Prácticas guiadas en ambiente controlado.</span>
+          </div>
+        </div>
+
+        <div className="login-bottom-note minimal">
+          <LockKeyhole size={18} />
           <p>
-            El acceso estará disponible únicamente para usuarios autorizados de la
-            Universidad del Valle.
+            El acceso está restringido a usuarios autorizados de la Universidad del Valle.
           </p>
+        </div>
+
+        <div className="login-card-footer">
+          <span>CyberLab</span>
+          <ArrowRight size={16} />
         </div>
       </section>
     </main>

@@ -80,7 +80,11 @@ export default function App() {
   }), [user]);
 
   if (!user) {
-    return <Login onLogin={setUser} />;
+    return <Login 
+      onLogin={setUser}
+      theme={theme}
+      setTheme={setTheme} 
+    />;
   }
 
   const [title, subtitle] = titles[view] || titles.dashboard;
@@ -106,6 +110,7 @@ export default function App() {
           <Dashboard
             data={dashboard}
             user={user}
+            userId={userId}
             setView={setView}
             setSelectedModule={setSelectedModule}
           />
