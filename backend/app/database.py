@@ -56,6 +56,15 @@ CREATE TABLE IF NOT EXISTS notes (
   body TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS terminal_commands (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  scenario_id TEXT NOT NULL,
+  command TEXT NOT NULL,
+  status TEXT NOT NULL,
+  output TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 """
 
 DEFAULT_USERS = [
