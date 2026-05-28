@@ -46,8 +46,8 @@ export default function App() {
 
   const titles = useMemo(() => ({
     dashboard: [
-      `Bienvenido, ${user?.name?.split(' ')[0] || 'estudiante'} 👋`,
-      'Continúa tu ruta de aprendizaje y revisa tu avance práctico.',
+      'Panel de aprendizaje',
+      'Progreso, laboratorio y retroalimentación del estudiante.',
     ],
     route: [
       'Ruta de aprendizaje',
