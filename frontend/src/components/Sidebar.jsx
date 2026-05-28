@@ -19,7 +19,7 @@ export default function Sidebar({ view, setView, theme, setTheme }) {
     return <button key={item.id} className={`nav-item ${view === item.id ? 'active' : ''}`} onClick={() => setView(item.id)}><Icon size={18}/>{item.label}</button>;
   };
   return <aside className="sidebar">
-    <div className="brand"><div className="logo"><Shield size={24}/></div><div><div>CYBERLABUV</div><small>Simulador de ciberseguridad</small></div></div>
+    <div className="brand"><div className="logo"><Shield size={24}/></div><div><div>CyberLab</div><small>Simulador de ciberseguridad</small></div></div>
     <div className="nav-group"><div className="nav-title">Navegación</div>{items.map(render)}</div>
     <div className="nav-group"><div className="nav-title">Herramientas</div>{tools.map(render)}</div>
     <button className="nav-item" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}Modo {theme === 'dark' ? 'claro' : 'oscuro'}</button>
