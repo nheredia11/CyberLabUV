@@ -1,13 +1,13 @@
 [
   {
     "id": "M00",
-    "titulo": "Induccion y reglas de uso",
+    "titulo": "Inducción y reglas de uso",
     "tipo": "fundacional",
     "estado": "operativo",
     "nivel": "Inicial",
-    "frameworks": ["Etica", "NIST Identify"],
+    "frameworks": ["Ética", "NIST Identify"],
     "duracion_estimada": "15 min",
-    "ruta": "platform/modules/M00_induccion"
+    "ruta": "platform/modules/M00_inducción"
   },
   {
     "id": "S01",
@@ -21,7 +21,7 @@
   },
   {
     "id": "S02",
-    "titulo": "Autenticacion HTTP debil en entorno controlado",
+    "titulo": "Autenticación HTTP debil en entorno controlado",
     "tipo": "escenario",
     "estado": "configurado",
     "nivel": "Basico-Intermedio",
@@ -31,7 +31,7 @@
   },
   {
     "id": "S03",
-    "titulo": "Aplicacion web vulnerable para practicas OWASP",
+    "titulo": "Aplicación web vulnerable para practicas OWASP",
     "tipo": "escenario",
     "estado": "plantilla",
     "nivel": "Intermedio",
