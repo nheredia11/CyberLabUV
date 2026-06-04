@@ -54,12 +54,12 @@ export default function App() {
       'Teoría, práctica, checkpoints y evaluación formativa.',
     ],
     practice: [
-      'Simulación local',
-      'Control de escenarios Docker y registro de evidencias.',
+      'Laboratorio local',
+      'Escenario Docker, terminal guiada y evidencias.',
     ],
     results: [
-      'Resultados de la práctica',
-      'Retroalimentación, desempeño y próximos pasos.',
+      'Resultados',
+      'Desempeño, fortalezas y próximos pasos.',
     ],
     teacher: [
       'Panel docente',
@@ -123,13 +123,20 @@ export default function App() {
             setSelectedModule={setSelectedModule}
             refreshDashboard={refreshDashboard}
             userId={userId}
+            setView={setView}
           />
         )}
 
         {view === 'practice' && <Practice userId={userId} />}
 
-        {view === 'results' && <Results data={dashboard} />}
-
+        {view === 'results' && (
+          <Results
+            data={dashboard}
+            user={user}
+            setView={setView}
+          />
+        )}
+        
         {view === 'teacher' && <TeacherAnalytics />}
 
         {view === 'resources' && <Resources />}
