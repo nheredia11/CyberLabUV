@@ -163,7 +163,7 @@ export default function Dashboard({
 
   function openModule(moduleId) {
     setSelectedModule(moduleId);
-    setView('route');
+    setView('practice');
   }
 
   function openRecommended() {

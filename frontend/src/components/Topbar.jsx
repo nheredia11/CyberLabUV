@@ -15,38 +15,36 @@ function getInitials(name = '') {
 }
 
 export default function Topbar({ title, subtitle, user, onLogout }) {
-  const avatar = user?.avatar || getInitials(user?.name);
+  const initials = user?.avatar || getInitials(user?.name);
 
   return (
-    <header className="topbar topbar-modern clean">
-      <div className="topbar-center-info clean">
+    <header className="pro-topbar">
+      <div className="pro-topbar-title">
         <h1>{title}</h1>
         <p>{subtitle}</p>
       </div>
 
-      <div className="topbar-actions">
-        <button className="topbar-icon-btn" title="Notificaciones">
+      <div className="pro-topbar-actions">
+        <button className="pro-icon-button" title="Notificaciones">
           <Bell size={19} />
         </button>
 
-        <div className="topbar-user-card">
-          {user?.picture ? (
-            <img src={user.picture} alt={user.name} />
-          ) : (
-            <span className="topbar-avatar-fallback">{avatar}</span>
-          )}
+        <div className="pro-user-pill">
+          <div className="pro-user-avatar">
+            {initials}
+          </div>
 
-          <div>
-            <strong>{user?.name}</strong>
-            <small>
+          <div className="pro-user-info">
+            <strong>{user?.name || 'Usuario CyberLab'}</strong>
+            <span>
               <GraduationCap size={13} />
               {user?.role === 'teacher' ? 'Docente' : 'Estudiante'}
-            </small>
+            </span>
           </div>
         </div>
 
         <button
-          className="topbar-logout-btn"
+          className="pro-logout-button"
           onClick={onLogout}
           title="Cerrar sesión"
         >
