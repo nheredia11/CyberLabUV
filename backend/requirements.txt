@@ -5,3 +5,4 @@ python-multipart==0.0.20
 PyYAML==6.0.2
 google-auth==2.37.0
 requests==2.32.3
+pydantic-settings==2.7.1

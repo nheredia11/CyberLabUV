@@ -1,0 +1,26 @@
+name: cyberlab_mitm_lab
+
+services:
+  mitm-lab:
+    build:
+      context: ../common/edu_lab
+      dockerfile: Dockerfile
+    container_name: cyberlab_mitm_lab
+    environment:
+      SCENARIO_ID: S05
+      LAB_MODE: mitm
+      APP_TITLE: CyberLab - MITM simulado en tráfico no cifrado
+    ports:
+      - "127.0.0.1:${MITM_PORT:-8086}:5000"
+    networks:
+      - mitm_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  mitm_net:
+    driver: bridge

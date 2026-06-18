@@ -8,53 +8,75 @@ from typing import Any
 import yaml
 
 from .config import get_settings
+from .schemas import CatalogItem, ModuleDetail
 
-MODULE_DIRS = {
-    "M00": "M00_induccion",
-    "S01": "S01_reconocimiento",
-    "S02": "S02_autenticacion_http",
-    "S03": "S03_web_basico",
-}
+
+class ContentError(RuntimeError):
+    """Error controlado al leer contenido pedagógico del simulador."""
+
+
+def _read_json(path: Path) -> Any:
+    if not path.exists():
+        raise ContentError(f"No existe el archivo requerido: {path}")
+    with path.open("r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def _read_yaml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise ContentError(f"No existe el archivo requerido: {path}")
+    with path.open("r", encoding="utf-8") as file:
+        data = yaml.safe_load(file) or {}
+    if not isinstance(data, dict):
+        raise ContentError(f"El archivo YAML no tiene estructura de objeto: {path}")
+    return data
+
+
+def _read_text(path: Path) -> str:
+    if not path.exists():
+        raise ContentError(f"No existe el archivo requerido: {path}")
+    return path.read_text(encoding="utf-8")
+
 
 @lru_cache(maxsize=1)
-def load_catalog() -> list[dict[str, Any]]:
-    path = get_settings().catalog_path
-    if not path.exists():
-        return []
-    return json.loads(path.read_text(encoding="utf-8"))
+def load_catalog() -> list[CatalogItem]:
+    settings = get_settings()
+    data = _read_json(settings.scenario_catalog_path)
+    return [CatalogItem(**item) for item in data]
 
-def module_path(module_id: str) -> Path:
-    dirname = MODULE_DIRS.get(module_id, module_id)
-    return get_settings().modules_dir / dirname
 
-def _read_json(path: Path, default: Any) -> Any:
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
+def get_catalog_item(module_id: str) -> CatalogItem | None:
+    normalized = module_id.upper()
+    return next((item for item in load_catalog() if item.id.upper() == normalized), None)
 
-def _read_yaml(path: Path, default: Any) -> Any:
-    return yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else default
-
-def _read_text(path: Path, default: str = "") -> str:
-    return path.read_text(encoding="utf-8") if path.exists() else default
 
 @lru_cache(maxsize=32)
-def load_module(module_id: str) -> dict[str, Any]:
-    base = module_path(module_id)
-    meta = _read_yaml(base / "module.yaml", {})
-    catalog_item = next((item for item in load_catalog() if item.get("id") == module_id), {})
-    return {
-        **catalog_item,
-        **meta,
-        "id": meta.get("id", module_id),
-        "module_id": module_id,
-        "theory": _read_text(base / "theory.md"),
-        "checkpoints": _read_json(base / "checkpoints.json", []),
-        "survey": _read_json(base / "survey.json", []),
-    }
+def load_module(module_id: str) -> ModuleDetail:
+    catalog_item = get_catalog_item(module_id)
+    if catalog_item is None:
+        raise ContentError(f"No existe el módulo en el catálogo: {module_id}")
 
-def load_modules() -> list[dict[str, Any]]:
-    modules = [load_module(item["id"]) for item in load_catalog()]
-    return sorted(modules, key=lambda m: int(m.get("orden", 999)))
+    settings = get_settings()
+    module_path = settings.root_dir / catalog_item.ruta
+    metadata = _read_yaml(module_path / "module.yaml")
+    theory_markdown = _read_text(module_path / "theory.md")
+    checkpoints = _read_json(module_path / "checkpoints.json")
+    survey = _read_json(module_path / "survey.json")
 
-def scenario_slug_for_module(module_id: str) -> str | None:
-    mapping = {"S01": "recon", "S02": "auth_http", "S03": "webapp"}
-    return mapping.get(module_id)
+    return ModuleDetail(
+        **metadata,
+        theory_markdown=theory_markdown,
+        checkpoints=checkpoints,
+        survey=survey,
+        catalog=catalog_item,
+    )
+
+
+def load_all_modules() -> list[ModuleDetail]:
+    modules = [load_module(item.id) for item in load_catalog()]
+    return sorted(modules, key=lambda module: module.orden)
+
+
+def clear_content_cache() -> None:
+    load_catalog.cache_clear()
+    load_module.cache_clear()

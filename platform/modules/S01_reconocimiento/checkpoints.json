@@ -1,20 +1,26 @@
 [
   {
     "id": "s01-cp1",
-    "titulo": "Identificar al menos dos servicios activos",
-    "tipo": "texto",
-    "evidencia": "Lista de servicios observados con puerto o banner"
+    "titulo": "Iniciar el escenario de reconocimiento",
+    "tipo": "confirmacion",
+    "evidencia": "El laboratorio S01 está disponible en http://127.0.0.1:8083 y responde correctamente en /health"
   },
   {
     "id": "s01-cp2",
-    "titulo": "Relacionar un hallazgo con superficie de ataque",
+    "titulo": "Identificar servicios visibles",
     "tipo": "texto",
-    "evidencia": "Breve explicacion del riesgo asociado"
+    "evidencia": "Lista de servicios observados dentro del entorno de laboratorio"
   },
   {
     "id": "s01-cp3",
-    "titulo": "Cerrar el escenario de forma controlada",
-    "tipo": "confirmacion",
-    "evidencia": "Se detuvo el laboratorio o se registro su estado"
+    "titulo": "Registrar hallazgos técnicos",
+    "tipo": "texto",
+    "evidencia": "Descripción breve de puertos, banners o eventos visibles en el laboratorio"
+  },
+  {
+    "id": "s01-cp4",
+    "titulo": "Proponer controles preventivos",
+    "tipo": "texto",
+    "evidencia": "Mínimo dos controles para reducir exposición innecesaria de servicios"
   }
 ]

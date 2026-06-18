@@ -1,10 +1,10 @@
 id: M00
-titulo: Induccion al entorno controlado
+titulo: Inducción al entorno controlado
 orden: 0
-descripcion: Modulo introductorio para explicar reglas de uso, etica y estructura del simulador.
+descripcion: Módulo introductorio para explicar las reglas de uso, la ética académica y la estructura general del simulador.
 objetivos:
-  - Comprender el uso etico del simulador
-  - Reconocer la ruta basica teoria-practica-evaluacion
-  - Identificar la estructura del entorno controlado
+- Comprender el uso ético y académico del simulador.
+- Reconocer la ruta básica entre teoría, práctica, evidencias y retroalimentación.
+- Identificar la estructura del entorno controlado y sus límites de uso.
 encuesta_obligatoria: true
 checkpoints_obligatorios: true

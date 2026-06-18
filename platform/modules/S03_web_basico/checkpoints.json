@@ -1,20 +1,32 @@
 [
   {
     "id": "s03-cp1",
-    "titulo": "Levantar el escenario web",
+    "titulo": "Iniciar la aplicación web OWASP",
     "tipo": "confirmacion",
-    "evidencia": "Contenedor web disponible"
+    "evidencia": "El laboratorio S03 está disponible en http://127.0.0.1:8084 y responde correctamente en /health"
   },
   {
     "id": "s03-cp2",
-    "titulo": "Relacionar el escenario con un riesgo OWASP",
+    "titulo": "Analizar entrada de búsqueda",
     "tipo": "texto",
-    "evidencia": "Riesgo y justificacion"
+    "evidencia": "Descripción del comportamiento observado en el formulario de búsqueda"
   },
   {
     "id": "s03-cp3",
-    "titulo": "Registrar mejora pendiente",
+    "titulo": "Analizar formulario de comentarios",
     "tipo": "texto",
-    "evidencia": "Backlog tecnico o pedagogico"
+    "evidencia": "Descripción del riesgo asociado a entradas no sanitizadas"
+  },
+  {
+    "id": "s03-cp4",
+    "titulo": "Analizar acceso a archivos",
+    "tipo": "texto",
+    "evidencia": "Descripción del comportamiento observado al solicitar archivos del laboratorio"
+  },
+  {
+    "id": "s03-cp5",
+    "titulo": "Proponer mitigaciones web",
+    "tipo": "texto",
+    "evidencia": "Controles recomendados: validación de entradas, sanitización, autorización y manejo seguro de errores"
   }
 ]

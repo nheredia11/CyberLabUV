@@ -1,11 +1,12 @@
 id: S03
-titulo: Aplicacion web vulnerable para practicas OWASP
+titulo: Aplicación web vulnerable para prácticas OWASP
 orden: 3
-descripcion: Plantilla inicial para integrar una aplicacion vulnerable y guias de observacion de riesgos web.
+descripcion: Escenario web controlado para estudiar de forma introductoria patrones asociados a inyección, XSS y Directory Traversal.
 objetivos:
-  - Consolidar un escenario web alineado a OWASP Top 10
-  - Documentar flujo teoria-practica-cierre
-  - Preparar una base para validacion con estudiantes
+- Reconocer vulnerabilidades web comunes en una aplicación de laboratorio.
+- Observar comportamientos inseguros asociados a entradas de usuario.
+- Registrar evidencias sin afectar sistemas externos.
+- Proponer controles básicos de validación, sanitización y autorización.
 encuesta_obligatoria: true
 checkpoints_obligatorios: true
-comando_inicio: bash scripts/run-scenario.sh webapp
+comando_inicio: docker compose -f scenarios/web_owasp/docker-compose.yml up -d

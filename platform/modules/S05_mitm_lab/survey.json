@@ -1,0 +1,17 @@
+[
+  {
+    "id": "s05-q1",
+    "pregunta": "El escenario me permitió comprender el riesgo de transmitir información sin cifrado.",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s05-q2",
+    "pregunta": "La simulación fue clara y segura para el contexto académico.",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s05-q3",
+    "pregunta": "¿Qué medida aplicarías primero para evitar exposición de tráfico no cifrado?",
+    "tipo": "texto_libre"
+  }
+]

@@ -1,17 +1,22 @@
 [
   {
     "id": "s02-q1",
-    "pregunta": "El escenario me permitio comprender riesgos de autenticacion debil",
+    "pregunta": "El escenario me permitió comprender riesgos asociados a una autenticación débil.",
     "tipo": "likert_1_5"
   },
   {
     "id": "s02-q2",
-    "pregunta": "La interfaz del laboratorio fue clara para registrar evidencia",
+    "pregunta": "La interfaz del laboratorio fue clara para registrar evidencia.",
     "tipo": "likert_1_5"
   },
   {
     "id": "s02-q3",
-    "pregunta": "Que control agregarias primero",
+    "pregunta": "La práctica me ayudó a relacionar la teoría con un caso aplicado.",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s02-q4",
+    "pregunta": "¿Qué control de seguridad agregarías primero para mejorar este escenario?",
     "tipo": "texto_libre"
   }
 ]

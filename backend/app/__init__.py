@@ -1,1 +1,1 @@
-"""Backend de CyberLabUV / ValleSec Lab."""
+"""Backend local de CyberLabUV."""
