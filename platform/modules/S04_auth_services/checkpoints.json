@@ -1,0 +1,26 @@
+[
+  {
+    "id": "s04-cp1",
+    "titulo": "Iniciar el laboratorio de autenticación simulada",
+    "tipo": "confirmacion",
+    "evidencia": "El laboratorio S04 está disponible en http://127.0.0.1:8085 y responde correctamente en /health"
+  },
+  {
+    "id": "s04-cp2",
+    "titulo": "Registrar intentos fallidos",
+    "tipo": "texto",
+    "evidencia": "Descripción de al menos dos intentos fallidos observados en los eventos del laboratorio"
+  },
+  {
+    "id": "s04-cp3",
+    "titulo": "Registrar un intento válido de laboratorio",
+    "tipo": "texto",
+    "evidencia": "Descripción del comportamiento del sistema al usar credenciales correctas de prueba"
+  },
+  {
+    "id": "s04-cp4",
+    "titulo": "Proponer controles para SSH y FTP",
+    "tipo": "texto",
+    "evidencia": "Mínimo tres controles recomendados para proteger servicios de autenticación"
+  }
+]

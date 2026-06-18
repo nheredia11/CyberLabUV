@@ -1,0 +1,12 @@
+id: S04
+titulo: Autenticación simulada sobre servicios SSH y FTP
+orden: 4
+descripcion: Escenario para estudiar intentos de autenticación sobre servicios simulados tipo SSH y FTP, sin exponer servicios reales ni credenciales institucionales.
+objetivos:
+- Comprender riesgos asociados a credenciales débiles en servicios de red.
+- Observar intentos válidos y fallidos en un entorno simulado.
+- Registrar eventos de autenticación como evidencia del aprendizaje.
+- Proponer controles de protección y detección.
+encuesta_obligatoria: true
+checkpoints_obligatorios: true
+comando_inicio: docker compose -f scenarios/auth_services/docker-compose.yml up -d

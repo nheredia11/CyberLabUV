@@ -15,54 +15,174 @@
       --ok: #22c55e;
       --warn: #f59e0b;
     }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, sans-serif; background: linear-gradient(180deg, #07111f, #0a1324); color: var(--text); }
-    .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 20px 60px; }
-    .hero { display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px; align-items: start; }
-    .card { background: rgba(15,27,49,.95); border: 1px solid var(--line); border-radius: 24px; padding: 24px; box-shadow: 0 18px 45px rgba(0,0,0,.24); }
-    h1, h2, h3 { margin-top: 0; }
-    p, li { color: var(--muted); line-height: 1.6; }
-    form { display: grid; gap: 12px; }
-    label { display: grid; gap: 6px; font-size: 14px; }
-    input { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: #08111f; color: var(--text); }
-    button { border: 0; border-radius: 14px; padding: 12px 16px; background: var(--accent); color: #08111f; font-weight: 700; cursor: pointer; }
-    .pill { display: inline-flex; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 22px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid rgba(148,163,184,.12); font-size: 14px; }
-    .ok { color: var(--ok); font-weight: 700; }
-    .bad { color: var(--warn); font-weight: 700; }
-    code { background: #08111f; border: 1px solid var(--line); padding: 2px 6px; border-radius: 6px; }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #07111f, #0a1324);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .card {
+      background: rgba(15, 27, 49, .95);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, .24);
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin-top: 0;
+    }
+
+    p,
+    li {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #08111f;
+      color: var(--text);
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      background: var(--accent);
+      color: #08111f;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .pill {
+      display: inline-flex;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, .12);
+      font-size: 14px;
+    }
+
+    .ok {
+      color: var(--ok);
+      font-weight: 700;
+    }
+
+    .bad {
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    code {
+      background: #08111f;
+      border: 1px solid var(--line);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
     @media (max-width: 900px) {
-      .hero, .grid { grid-template-columns: 1fr; }
+      .hero,
+      .grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <section class="hero">
       <article class="card">
         <span class="pill">Escenario S02</span>
         <h1>{{ app_title }}</h1>
-        <p>Laboratorio propio para estudiar debilidades de autenticacion HTTP en un entorno academico y controlado. Esta interfaz esta pensada para que puedas demostrar avance funcional, capturar evidencia y discutir mitigaciones con tu tutor.</p>
+
+        <p>
+          Laboratorio propio para estudiar debilidades de autenticación HTTP en un
+          entorno académico, ético y controlado. Esta interfaz permite demostrar un
+          avance funcional, capturar evidencia y discutir mitigaciones con el tutor.
+        </p>
+
         <ul>
-          <li>Usuario de demostracion visible para el laboratorio: <code>{{ demo_user }}</code></li>
-          <li>Sin datos institucionales ni integracion externa</li>
-          <li>Ideal para registrar intentos y luego discutir controles</li>
+          <li>Usuario de demostración visible para el laboratorio: <code>{{ demo_user }}</code></li>
+          <li>Sin datos institucionales ni integración externa</li>
+          <li>Diseñado para observar intentos y discutir controles de seguridad</li>
         </ul>
+
         {% if last_message %}
           <p class="{{ 'ok' if last_success else 'bad' }}">{{ last_message }}</p>
         {% endif %}
       </article>
+
       <article class="card">
         <h2>Acceso de laboratorio</h2>
+
         <form method="post" action="/login">
-          <label>Usuario
+          <label>
+            Usuario
             <input type="text" name="username" placeholder="ej. estudiante" required>
           </label>
-          <label>Contrasena
-            <input type="password" name="password" placeholder="Ingresa la contrasena de laboratorio" required>
+
+          <label>
+            Contraseña
+            <input type="password" name="password" placeholder="Ingresa la contraseña de laboratorio" required>
           </label>
+
           <button type="submit">Enviar intento</button>
         </form>
       </article>
@@ -70,21 +190,34 @@
 
     <section class="grid">
       <article class="card">
-        <h3>Objetivo didactico</h3>
-        <p>Relacionar una interfaz sencilla de autenticacion con conceptos como politica de credenciales, mensajes de error, registro de eventos y diseno de mitigaciones.</p>
+        <h3>Objetivo didáctico</h3>
+        <p>
+          Relacionar una interfaz sencilla de autenticación con conceptos como
+          política de credenciales, mensajes de error, registro de eventos y diseño
+          de mitigaciones.
+        </p>
       </article>
+
       <article class="card">
         <h3>Evidencia esperada</h3>
-        <p>Capturas de la interfaz, observaciones del comportamiento y lista corta de controles propuestos por el estudiante.</p>
+        <p>
+          Capturas de la interfaz, observaciones del comportamiento del sistema y
+          lista corta de controles propuestos por el estudiante.
+        </p>
       </article>
+
       <article class="card">
         <h3>Ruta sugerida</h3>
-        <p>1. Abrir el escenario. 2. Observar comportamiento. 3. Registrar hallazgos. 4. Proponer mitigaciones. 5. Cerrar el laboratorio.</p>
+        <p>
+          1. Abrir el escenario. 2. Observar el comportamiento. 3. Registrar hallazgos.
+          4. Proponer mitigaciones. 5. Cerrar el laboratorio.
+        </p>
       </article>
     </section>
 
     <section class="card" style="margin-top: 22px;">
-      <h2>Ultimos intentos registrados</h2>
+      <h2>Últimos intentos registrados</h2>
+
       <table>
         <thead>
           <tr>
@@ -93,18 +226,21 @@
             <th>Resultado</th>
           </tr>
         </thead>
+
         <tbody>
           {% if attempts %}
             {% for item in attempts %}
-            <tr>
-              <td>{{ item.timestamp }}</td>
-              <td>{{ item.username }}</td>
-              <td class="{{ 'ok' if item.success else 'bad' }}">{{ 'Valido' if item.success else 'Fallido' }}</td>
-            </tr>
+              <tr>
+                <td>{{ item.timestamp }}</td>
+                <td>{{ item.username }}</td>
+                <td class="{{ 'ok' if item.success else 'bad' }}">
+                  {{ 'Válido' if item.success else 'Fallido' }}
+                </td>
+              </tr>
             {% endfor %}
           {% else %}
             <tr>
-              <td colspan="3">Aun no hay intentos registrados.</td>
+              <td colspan="3">Aún no hay intentos registrados.</td>
             </tr>
           {% endif %}
         </tbody>

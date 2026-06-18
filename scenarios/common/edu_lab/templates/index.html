@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ app_title }}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+  <main class="wrap">
+    <section class="hero card">
+      <span class="pill">{{ scenario_id }} · {{ lab_mode }}</span>
+      <h1>{{ app_title }}</h1>
+      <p>
+        Laboratorio local de CyberLab para prácticas académicas, éticas y controladas.
+        Este entorno no usa datos reales ni debe ejecutarse contra sistemas externos.
+      </p>
+
+      <div class="links">
+        <a href="/health" target="_blank">Ver /health</a>
+        <a href="/events" target="_blank">Ver eventos JSON</a>
+      </div>
+    </section>
+
+    {% if lab_mode == "recon" %}
+      <section class="grid">
+        <article class="card">
+          <h2>Reconocimiento</h2>
+          <p>
+            Este escenario expone una aplicación HTTP y servicios simulados con banners
+            tipo SSH y FTP dentro de la red Docker.
+          </p>
+          <ul>
+            <li>HTTP local: puerto 5000 dentro del contenedor</li>
+            <li>SSH simulado: puerto 2222 dentro del contenedor</li>
+            <li>FTP simulado: puerto 2121 dentro del contenedor</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>Comando interno sugerido</h2>
+          <pre>docker compose -f scenarios/recon/docker-compose.yml exec recon-attacker nmap -sV recon-lab</pre>
+          <p>
+            Este comando solo debe ejecutarse contra el servicio interno del laboratorio.
+          </p>
+        </article>
+      </section>
+    {% endif %}
+        <section class="panel evidence-panel">
+      <div class="section-title">
+        <div>
+          <h2>Evidencia rápida para el tablero</h2>
+          <p>
+            Textos listos para copiar y pegar en los checkpoints del dashboard principal.
+          </p>
+        </div>
+
+        <span class="mini-link">Checkpoint helper</span>
+      </div>
+
+      <div class="evidence-grid">
+        <article class="evidence-card">
+          <span>Inicio del laboratorio</span>
+          <p id="ev-start">
+            El laboratorio {{ scenario_id }} se encuentra activo en {{ public_url }} y el endpoint /health responde correctamente en el entorno local.
+          </p>
+          <button type="button" class="copy-btn" data-copy-target="ev-start">Copiar evidencia</button>
+        </article>
+
+        <article class="evidence-card">
+          <span>Evento observado</span>
+          <p id="ev-event">
+            Se interactuó con el laboratorio {{ scenario_id }} y se generaron eventos visibles en la sección “Eventos del laboratorio” para su análisis académico.
+          </p>
+          <button type="button" class="copy-btn" data-copy-target="ev-event">Copiar evidencia</button>
+        </article>
+
+        <article class="evidence-card">
+          <span>Mitigación sugerida</span>
+          <p id="ev-control">
+            A partir del escenario {{ scenario_id }}, se recomienda aplicar controles relacionados con {{ meta.control }}.
+          </p>
+          <button type="button" class="copy-btn" data-copy-target="ev-control">Copiar mitigación</button>
+        </article>
+      </div>
+    </section>
+    {% if lab_mode == "web_owasp" %}
+      <section class="grid">
+        <article class="card">
+          <h2>Búsqueda didáctica SQLi</h2>
+          <form method="get" action="/web/search" target="_blank">
+            <label>
+              Consulta
+              <input name="q" placeholder="Buscar usuario de laboratorio">
+            </label>
+            <button>Consultar</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h2>Comentario para XSS controlado</h2>
+          <form method="post" action="/web/comment">
+            <label>
+              Comentario
+              <textarea name="comment" placeholder="Escribe un comentario de laboratorio"></textarea>
+            </label>
+            <button>Guardar comentario</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h2>Directory Traversal controlado</h2>
+          <form method="get" action="/web/file" target="_blank">
+            <label>
+              Archivo
+              <input name="name" value="readme.txt">
+            </label>
+            <button>Solicitar archivo</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h2>Comentarios registrados</h2>
+          {% if comments %}
+            {% for comment in comments %}
+              <div class="comment">{{ comment|safe }}</div>
+            {% endfor %}
+          {% else %}
+            <p>No hay comentarios registrados.</p>
+          {% endif %}
+        </article>
+      </section>
+    {% endif %}
+    
+    {% if lab_mode == "auth_services" %}
+      <section class="grid">
+        <article class="card">
+          <h2>Autenticación SSH/FTP simulada</h2>
+          <p>
+            Este escenario permite observar intentos de autenticación sobre servicios
+            simulados. Usuario de laboratorio: <code>{{ demo_user }}</code>.
+          </p>
+
+          <form method="post" action="/auth/login">
+            <label>
+              Servicio
+              <select name="service">
+                <option value="ssh">SSH simulado</option>
+                <option value="ftp">FTP simulado</option>
+              </select>
+            </label>
+
+            <label>
+              Usuario
+              <input name="username" placeholder="Usuario">
+            </label>
+
+            <label>
+              Contraseña
+              <input name="password" type="password" placeholder="Contraseña">
+            </label>
+
+            <button>Enviar intento</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h2>Controles a discutir</h2>
+          <ul>
+            <li>Bloqueo progresivo</li>
+            <li>Registro de intentos fallidos</li>
+            <li>Contraseñas robustas</li>
+            <li>Autenticación multifactor</li>
+            <li>Alertas ante patrones repetidos</li>
+          </ul>
+        </article>
+      </section>
+    {% endif %}
+
+    {% if lab_mode == "mitm" %}
+      <section class="grid">
+        <article class="card">
+          <h2>Tráfico no cifrado simulado</h2>
+          <p>
+            Este escenario representa un flujo cliente-servidor donde un observador
+            puede ver mensajes no cifrados. Es una simulación pedagógica, no un MITM real.
+          </p>
+
+          <form method="post" action="/mitm/send">
+            <label>
+              Emisor
+              <input name="sender" value="cliente">
+            </label>
+
+            <label>
+              Mensaje
+              <textarea name="message" placeholder="Mensaje de prueba no sensible"></textarea>
+            </label>
+
+            <button>Enviar mensaje</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h2>Mitigaciones</h2>
+          <ul>
+            <li>Uso de HTTPS/TLS</li>
+            <li>Validación de certificados</li>
+            <li>No transmitir credenciales en texto claro</li>
+            <li>Monitoreo de tráfico anómalo</li>
+          </ul>
+        </article>
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>Eventos del laboratorio</h2>
+
+      {% if events %}
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Evento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in events %}
+              <tr>
+                <td>{{ event.time }}</td>
+                <td>{{ event.kind }}</td>
+                <td>{{ event.message }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No hay eventos registrados.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

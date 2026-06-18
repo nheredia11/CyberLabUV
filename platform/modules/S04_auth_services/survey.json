@@ -1,0 +1,17 @@
+[
+  {
+    "id": "s04-q1",
+    "pregunta": "El escenario me permitió comprender riesgos de autenticación en servicios de red.",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s04-q2",
+    "pregunta": "La simulación fue clara y adecuada para un entorno académico.",
+    "tipo": "likert_1_5"
+  },
+  {
+    "id": "s04-q3",
+    "pregunta": "¿Qué control aplicarías primero para proteger servicios SSH o FTP?",
+    "tipo": "texto_libre"
+  }
+]
