@@ -1,54 +1,300 @@
-import { Clipboard, Play, RotateCcw, Square, TerminalSquare } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { api } from '../lib/api.js';
+import { useMemo, useState } from "react";
+import {
+  runScenarioAction,
+  runTerminalCommand,
+} from "../lib/api";
 
-const scenarios = [
-  { id: 'recon', title: 'Reconocimiento de red', command: 'bash scripts/run-scenario.sh recon', commands: ['nmap -sV 10.10.10.20', 'curl http://localhost:8081'] },
-  { id: 'auth_http', title: 'Autenticación HTTP débil', command: 'bash scripts/run-scenario.sh auth_http', commands: ['curl -i http://localhost:8082/login', 'hydra -l student -P wordlists/demo.txt localhost http-post-form'] },
-  { id: 'webapp', title: 'Aplicación web OWASP', command: 'bash scripts/run-scenario.sh webapp', commands: ["curl 'http://localhost:8083/search?q=test'", "curl 'http://localhost:8083/item?id=1'"] },
-];
+const LAB_URLS = {
+  M00: null,
+  S01: "http://127.0.0.1:8083",
+  S02: "http://127.0.0.1:8081",
+  S03: "http://127.0.0.1:8084",
+  S04: "http://127.0.0.1:8085",
+  S05: "http://127.0.0.1:8086",
+};
 
-export default function Practice() {
-  const [scenario, setScenario] = useState('auth_http');
-  const [log, setLog] = useState('Selecciona una acción para registrar o ejecutar un escenario.');
-  const [terminalOutput, setTerminalOutput] = useState('Terminal guiada lista. Usa comandos sugeridos para generar evidencia reproducible.');
-  const [command, setCommand] = useState('curl -i http://localhost:8082/login');
-  const selected = useMemo(() => scenarios.find(s => s.id === scenario), [scenario]);
-  const execute = async (action) => {
-    const res = await api.scenarioAction({ user_id: 'ana', scenario_id: scenario, action });
-    setLog(`[${res.status}] ${res.message}`);
+const SAFE_COMMANDS = {
+  S01: [
+    "nmap -sV recon-lab",
+    "curl http://recon-lab:5000/health",
+    "curl http://127.0.0.1:8083/events",
+  ],
+  S02: [
+    "curl -i http://127.0.0.1:8081/health",
+    "curl http://127.0.0.1:8081/attempts",
+    "hydra -l estudiante -P wordlists/demo.txt localhost http-post-form",
+  ],
+  S03: [
+    "curl 'http://127.0.0.1:8084/web/search?q=test'",
+    "curl 'http://127.0.0.1:8084/web/file?name=readme.txt'",
+    "curl 'http://127.0.0.1:8084/events'",
+  ],
+  S04: [
+    "curl -i http://127.0.0.1:8085/health",
+    "curl http://127.0.0.1:8085/events",
+  ],
+  S05: [
+    "curl -i http://127.0.0.1:8086/health",
+    "curl http://127.0.0.1:8086/events",
+  ],
+};
+
+function resolveUserId(user) {
+  const storedUser = localStorage.getItem("cyberlab_user");
+
+  if (user?.id) return user.id;
+  if (user?.email) return user.email;
+
+  if (storedUser) {
+    try {
+      const parsed = JSON.parse(storedUser);
+      return parsed?.id || parsed?.email || "demo-student";
+    } catch {
+      return "demo-student";
+    }
+  }
+
+  return "demo-student";
+}
+
+function normalizeScenarioId(moduleId, moduleData) {
+  const value =
+    moduleData?.id ||
+    moduleData?.module_id ||
+    moduleId ||
+    "S02";
+
+  return String(value).toUpperCase();
+}
+
+function getActionLabel(action) {
+  const labels = {
+    start: "Iniciar escenario",
+    status: "Consultar estado",
+    reset: "Reiniciar escenario",
+    stop: "Detener escenario",
   };
-  const runCommand = async (cmd = command) => {
-    const res = await api.terminal({ user_id: 'ana', scenario_id: scenario, command: cmd });
-    setCommand(res.command);
-    setTerminalOutput(`$ ${res.command}\n[${res.status}]\n${res.output}`);
-  };
-  return <div className="grid grid-2">
-    <div className="local-panel">
-      <h2>Aplicación de simulación local</h2><p>Entorno Docker controlado + terminal guiada segura</p>
-      <select value={scenario} onChange={e => { const s = scenarios.find(item => item.id === e.target.value); setScenario(e.target.value); setCommand(s.commands[0]); }}>
-        {scenarios.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-      </select>
-      <div className="grid grid-3" style={{marginTop:16}}>
-        <button className="btn" onClick={() => execute('start')}><Play size={16}/>Iniciar</button>
-        <button className="btn secondary" onClick={() => execute('reset')}><RotateCcw size={16}/>Reiniciar</button>
-        <button className="btn secondary" onClick={() => execute('stop')}><Square size={16}/>Detener</button>
+
+  return labels[action] || action;
+}
+
+export default function Practice({
+  user,
+  moduleId = "S02",
+  moduleData = null,
+  onScenarioEvent,
+}) {
+  const scenarioId = normalizeScenarioId(moduleId, moduleData);
+  const userId = resolveUserId(user);
+  const labUrl = LAB_URLS[scenarioId];
+
+  const [selectedCommand, setSelectedCommand] = useState(
+    SAFE_COMMANDS[scenarioId]?.[0] || ""
+  );
+  const [customCommand, setCustomCommand] = useState("");
+  const [loadingAction, setLoadingAction] = useState("");
+  const [loadingCommand, setLoadingCommand] = useState(false);
+  const [output, setOutput] = useState(
+    "Selecciona una acción del escenario o ejecuta un comando guiado."
+  );
+
+  const commands = useMemo(() => {
+    return SAFE_COMMANDS[scenarioId] || [];
+  }, [scenarioId]);
+
+  async function handleScenarioAction(action) {
+    try {
+      setLoadingAction(action);
+      setOutput(`Ejecutando acción "${action}" para ${scenarioId}...`);
+
+      const response = await runScenarioAction({
+        user_id: userId,
+        scenario_id: scenarioId,
+        action,
+      });
+
+      setOutput(JSON.stringify(response, null, 2));
+
+      if (onScenarioEvent) {
+        onScenarioEvent(response);
+      }
+    } catch (error) {
+      setOutput(`Error ejecutando la acción: ${error.message}`);
+    } finally {
+      setLoadingAction("");
+    }
+  }
+
+  async function handleTerminalCommand(commandValue) {
+    const command = commandValue?.trim();
+
+    if (!command) {
+      setOutput("Escribe o selecciona un comando antes de ejecutarlo.");
+      return;
+    }
+
+    try {
+      setLoadingCommand(true);
+      setOutput(`Ejecutando comando guiado:\n${command}`);
+
+      const response = await runTerminalCommand({
+        user_id: userId,
+        scenario_id: scenarioId,
+        command,
+      });
+
+      setOutput(JSON.stringify(response, null, 2));
+    } catch (error) {
+      setOutput(`Error ejecutando el comando: ${error.message}`);
+    } finally {
+      setLoadingCommand(false);
+    }
+  }
+
+  if (!labUrl && scenarioId === "M00") {
+    return (
+      <section className="practice-shell">
+        <div className="practice-hero">
+          <span className="eyebrow">M00 · Inducción</span>
+          <h2>Módulo sin laboratorio Docker</h2>
+          <p>
+            Este módulo corresponde a la inducción ética y académica. No requiere
+            iniciar un contenedor porque su objetivo es explicar reglas, límites y
+            uso responsable del simulador.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="practice-shell">
+      <div className="practice-hero">
+        <span className="eyebrow">Práctica local controlada</span>
+        <h2>{scenarioId} · Laboratorio CyberLab</h2>
+        <p>
+          Desde esta sección puedes iniciar el escenario Docker, abrir el
+          laboratorio local, consultar el estado y ejecutar comandos guiados con
+          el usuario real de la sesión.
+        </p>
+
+        <div className="practice-meta-grid">
+          <article>
+            <span>Estudiante</span>
+            <strong>{userId}</strong>
+          </article>
+
+          <article>
+            <span>Escenario</span>
+            <strong>{scenarioId}</strong>
+          </article>
+
+          <article>
+            <span>Laboratorio</span>
+            <strong>{labUrl || "No aplica"}</strong>
+          </article>
+        </div>
       </div>
-      <h3><TerminalSquare size={18}/> Terminal / Evidencia</h3>
-      <div className="terminal small">$ {selected.command}\n{log}</div>
-      <div className="terminal-box">
-        <label>Comando guiado</label>
-        <div className="command-row"><input value={command} onChange={e => setCommand(e.target.value)}/><button className="btn" onClick={() => runCommand()}><TerminalSquare size={16}/>Ejecutar</button></div>
-        <div className="quick-commands">{selected.commands.map(c => <button className="btn ghost" key={c} onClick={() => runCommand(c)}><Clipboard size={14}/>{c}</button>)}</div>
-        <div className="terminal">{terminalOutput}</div>
+
+      <div className="practice-grid">
+        <article className="practice-card">
+          <h3>Control del escenario</h3>
+          <p>
+            Estas acciones llaman al backend, y el backend se encarga de ejecutar
+            Docker Compose de forma controlada.
+          </p>
+
+          <div className="practice-actions">
+            {["start", "status", "reset", "stop"].map((action) => (
+              <button
+                key={action}
+                type="button"
+                className={action === "stop" ? "danger-button" : ""}
+                onClick={() => handleScenarioAction(action)}
+                disabled={Boolean(loadingAction)}
+              >
+                {loadingAction === action
+                  ? "Ejecutando..."
+                  : getActionLabel(action)}
+              </button>
+            ))}
+          </div>
+
+          {labUrl && (
+            <a
+              className="open-lab-button"
+              href={labUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Abrir laboratorio local
+            </a>
+          )}
+        </article>
+
+        <article className="practice-card">
+          <h3>Terminal guiada</h3>
+          <p>
+            Usa comandos permitidos por el backend para mantener la práctica en
+            un entorno académico, ético y seguro.
+          </p>
+
+          <label>
+            Comando sugerido
+            <select
+              value={selectedCommand}
+              onChange={(event) => setSelectedCommand(event.target.value)}
+            >
+              {commands.length === 0 && (
+                <option value="">No hay comandos definidos</option>
+              )}
+
+              {commands.map((command) => (
+                <option key={command} value={command}>
+                  {command}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => handleTerminalCommand(selectedCommand)}
+            disabled={loadingCommand || !selectedCommand}
+          >
+            {loadingCommand ? "Ejecutando..." : "Ejecutar comando sugerido"}
+          </button>
+
+          <label>
+            Comando personalizado permitido
+            <input
+              value={customCommand}
+              onChange={(event) => setCustomCommand(event.target.value)}
+              placeholder="Escribe un comando permitido por el backend"
+            />
+          </label>
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => handleTerminalCommand(customCommand)}
+            disabled={loadingCommand || !customCommand.trim()}
+          >
+            Ejecutar comando personalizado
+          </button>
+        </article>
       </div>
-    </div>
-    <div className="card">
-      <h2>Estado del laboratorio</h2>
-      <p><span className="badge">Listo para práctica</span></p>
-      <div className="checkpoint"><Play/><div><strong>Primer escenario demostrable</strong><p className="muted">Autenticación HTTP débil permite mostrar inicio, terminal, evidencia y checkpoint.</p></div></div>
-      <div className="checkpoint"><RotateCcw/><div><strong>Reproducible</strong><p className="muted">Cada acción queda registrada para analítica docente.</p></div></div>
-      <div className="checkpoint"><TerminalSquare/><div><strong>Seguro por diseño</strong><p className="muted">La terminal sólo acepta comandos permitidos para evitar acciones fuera del laboratorio.</p></div></div>
-    </div>
-  </div>;
+
+      <article className="practice-console">
+        <div className="console-head">
+          <span></span>
+          <span></span>
+          <span></span>
+          <strong>Salida del backend</strong>
+        </div>
+
+        <pre>{output}</pre>
+      </article>
+    </section>
+  );
 }

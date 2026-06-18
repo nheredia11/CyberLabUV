@@ -4691,3 +4691,422 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
     max-width: 100%;
   }
 }
+
+/* =========================================================
+   CyberLab · Ruta de aprendizaje, práctica y checkpoints
+   ========================================================= */
+
+.learning-route-page {
+  display: grid;
+  gap: 22px;
+  width: 100%;
+}
+
+.learning-route-hero {
+  display: grid;
+  grid-template-columns: 1.35fr 0.65fr;
+  gap: 20px;
+  align-items: stretch;
+  padding: 24px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.14), transparent 42%),
+    rgba(13, 27, 49, 0.88);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.learning-route-hero h1 {
+  margin: 10px 0;
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.learning-route-hero p {
+  max-width: 850px;
+  color: var(--muted, #b7c6e6);
+  line-height: 1.7;
+}
+
+.learning-route-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.learning-route-summary {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  border-radius: 22px;
+  background: rgba(6, 17, 32, 0.45);
+}
+
+.summary-kpi {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.18));
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.summary-kpi span,
+.summary-kpi strong {
+  display: block;
+}
+
+.summary-kpi span {
+  color: var(--muted, #b7c6e6);
+  font-size: 13px;
+}
+
+.summary-kpi strong {
+  margin-top: 6px;
+  color: var(--text, #eef5ff);
+}
+
+.learning-phase-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.learning-phase-nav button {
+  display: grid;
+  gap: 5px;
+  min-height: 74px;
+  justify-items: start;
+  padding: 14px 16px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text, #eef5ff);
+  cursor: pointer;
+}
+
+.learning-phase-nav button.active {
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(96, 165, 250, 0.12);
+}
+
+.learning-phase-nav span {
+  color: var(--muted, #b7c6e6);
+  font-size: 13px;
+}
+
+.learning-panel,
+.practice-shell,
+.learning-loading {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  border-radius: 24px;
+  background: rgba(13, 27, 49, 0.72);
+}
+
+.section-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  color: var(--text, #eef5ff);
+}
+
+.section-heading p {
+  margin: 0;
+  color: var(--muted, #b7c6e6);
+}
+
+.eyebrow {
+  display: inline-flex;
+  width: fit-content;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.14);
+  color: #dbeafe;
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.markdown-content {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text, #eef5ff);
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin: 0;
+  color: var(--text, #eef5ff);
+}
+
+.markdown-content p,
+.markdown-content li {
+  color: var(--muted, #b7c6e6);
+  line-height: 1.7;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.markdown-content code {
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: rgba(6, 17, 32, 0.85);
+  color: #dbeafe;
+}
+
+.practice-hero {
+  display: grid;
+  gap: 10px;
+}
+
+.practice-hero h2 {
+  margin: 0;
+}
+
+.practice-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.practice-meta-grid article,
+.practice-card,
+.practice-console,
+.feedback-box {
+  padding: 18px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.practice-meta-grid span,
+.practice-meta-grid strong {
+  display: block;
+}
+
+.practice-meta-grid span {
+  color: var(--muted, #b7c6e6);
+  font-size: 13px;
+}
+
+.practice-meta-grid strong {
+  margin-top: 6px;
+  color: var(--text, #eef5ff);
+  word-break: break-word;
+}
+
+.practice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+
+.practice-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.practice-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.practice-console {
+  overflow: hidden;
+}
+
+.console-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -18px -18px 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  background: rgba(6, 17, 32, 0.75);
+}
+
+.console-head span {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #ef4444;
+}
+
+.console-head span:nth-child(2) {
+  background: #f59e0b;
+}
+
+.console-head span:nth-child(3) {
+  background: #22c55e;
+}
+
+.console-head strong {
+  margin-left: auto;
+  color: var(--muted, #b7c6e6);
+  font-size: 13px;
+}
+
+.practice-console pre,
+.feedback-box pre {
+  max-height: 360px;
+  overflow: auto;
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(6, 17, 32, 0.92);
+  color: #dbeafe;
+  white-space: pre-wrap;
+}
+
+.open-lab-button,
+.secondary-button,
+.danger-button {
+  text-decoration: none;
+}
+
+.danger-button {
+  background: linear-gradient(135deg, #ef4444, #f97316) !important;
+  color: white !important;
+}
+
+.secondary-button {
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: var(--text, #eef5ff) !important;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22)) !important;
+}
+
+.checkpoint-grid,
+.survey-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.checkpoint-card,
+.survey-question {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.checkpoint-card.completed {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.055);
+}
+
+.checkpoint-card__head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.checkpoint-card__head span {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.14);
+  color: #dbeafe;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.checkpoint-saved {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(34, 197, 94, 0.10);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #bbf7d0;
+}
+
+.checkpoint-card textarea,
+.survey-question textarea,
+.survey-question select,
+.learning-route-summary select,
+.practice-card select,
+.practice-card input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
+  border-radius: 14px;
+  background: rgba(6, 17, 32, 0.92);
+  color: var(--text, #eef5ff);
+  padding: 12px;
+}
+
+.checkpoint-card textarea,
+.survey-question textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.checkpoint-card button,
+.learning-panel > button,
+.practice-card button,
+.open-lab-button,
+.learning-route-actions button {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #60a5fa, #38bdf8);
+  color: #061120;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.checkpoint-card button:disabled,
+.learning-panel > button:disabled,
+.practice-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inline-alert {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  color: #dbeafe;
+}
+
+.feedback-box {
+  margin-top: 16px;
+}
+
+@media (max-width: 980px) {
+  .learning-route-hero,
+  .practice-grid,
+  .practice-meta-grid,
+  .learning-phase-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-actions {
+    grid-template-columns: 1fr;
+  }
+}
