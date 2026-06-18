@@ -1,11 +1,12 @@
 id: S02
-titulo: Autenticacion HTTP debil en entorno controlado
+titulo: Autenticación HTTP débil en entorno controlado
 orden: 2
-descripcion: Escenario para analizar debilidades de autenticacion y registro de intentos sobre una aplicacion de laboratorio propia.
+descripcion: Escenario para analizar debilidades básicas de autenticación HTTP, registrar intentos de acceso y proponer controles de mitigación dentro de una aplicación de laboratorio.
 objetivos:
-  - Comprender debilidades basicas de autenticacion HTTP
-  - Observar intentos y retroalimentacion desde una interfaz controlada
-  - Proponer mitigaciones sin salir del entorno academico
+- Comprender debilidades básicas de autenticación HTTP.
+- Observar intentos de acceso desde una interfaz controlada.
+- Registrar evidencia técnica y pedagógica del ejercicio.
+- Proponer mitigaciones sin salir del entorno académico.
 encuesta_obligatoria: true
 checkpoints_obligatorios: true
-comando_inicio: bash scripts/run-scenario.sh auth_http
+comando_inicio: docker compose -f scenarios/auth_http/docker-compose.yml up -d

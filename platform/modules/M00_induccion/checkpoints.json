@@ -1,20 +1,20 @@
 [
   {
-    "id": "cp1",
-    "titulo": "Leer reglas de uso",
+    "id": "m00-cp1",
+    "titulo": "Leer las reglas de uso",
     "tipo": "confirmacion",
-    "evidencia": "Aceptacion de reglas"
+    "evidencia": "Aceptación de las reglas del laboratorio"
   },
   {
-    "id": "cp2",
-    "titulo": "Identificar componentes del entorno",
+    "id": "m00-cp2",
+    "titulo": "Identificar los componentes del entorno",
     "tipo": "texto",
-    "evidencia": "Breve descripcion de host, docker y escenarios"
+    "evidencia": "Breve descripción de la plataforma, Docker y los escenarios"
   },
   {
-    "id": "cp3",
-    "titulo": "Confirmar readiness",
+    "id": "m00-cp3",
+    "titulo": "Confirmar preparación inicial",
     "tipo": "confirmacion",
-    "evidencia": "Estudiante listo para iniciar practicas"
+    "evidencia": "El estudiante confirma que comprende el uso académico del simulador"
   }
 ]

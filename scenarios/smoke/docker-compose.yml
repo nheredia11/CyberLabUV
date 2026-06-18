@@ -1,62 +1,39 @@
+name: cyberlab_smoke
+
 services:
   ui-smoke:
     image: nginx:1.27-alpine
+    container_name: cyberlab_smoke_ui
     restart: unless-stopped
     ports:
-      - "${PLATFORM_PORT}:80"
+      - "127.0.0.1:8080:80"
     environment:
-      APP_ENV: ${APP_ENV}
-      PROJECT_NAME: ${PROJECT_NAME}
+      APP_ENV: development
+      PROJECT_NAME: CyberLab
     volumes:
       - ./landing:/usr/share/nginx/html:ro
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    read_only: true
-    tmpfs:
-      - /var/cache/nginx
-      - /var/run
-    pids_limit: 100
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1 >/dev/null 2>&1 || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 3
       start_period: 5s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
     networks:
-      - valleseclab_net
+      - cyberlab_smoke_net
 
   worker-smoke:
     image: alpine:3.21
+    container_name: cyberlab_smoke_worker
     restart: unless-stopped
     init: true
     command: ["sh", "-c", "while true; do date >> /shared/heartbeat.log; sleep 30; done"]
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    read_only: true
-    tmpfs:
-      - /tmp
-    pids_limit: 50
     volumes:
       - shared_data:/shared
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
     networks:
-      - valleseclab_net
+      - cyberlab_smoke_net
 
 networks:
-  valleseclab_net:
+  cyberlab_smoke_net:
     driver: bridge
 
 volumes:

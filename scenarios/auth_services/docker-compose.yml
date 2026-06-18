@@ -1,0 +1,28 @@
+name: cyberlab_auth_services
+
+services:
+  auth-services-lab:
+    build:
+      context: ../common/edu_lab
+      dockerfile: Dockerfile
+    container_name: cyberlab_auth_services_lab
+    environment:
+      SCENARIO_ID: S04
+      LAB_MODE: auth_services
+      APP_TITLE: CyberLab - Autenticación SSH/FTP simulada
+      DEMO_USER: estudiante
+      DEMO_PASSWORD: laboratorio123
+    ports:
+      - "127.0.0.1:${AUTH_SERVICES_PORT:-8085}:5000"
+    networks:
+      - auth_services_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+networks:
+  auth_services_net:
+    driver: bridge

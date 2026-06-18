@@ -1,17 +1,17 @@
 [
   {
     "id": "s01-q1",
-    "pregunta": "La interfaz del escenario me ayudo a entender que activos estaban en juego",
+    "pregunta": "El escenario me permitió comprender la importancia del reconocimiento de servicios.",
     "tipo": "likert_1_5"
   },
   {
     "id": "s01-q2",
-    "pregunta": "Comprendi por que el reconocimiento precede a otros ejercicios del laboratorio",
+    "pregunta": "El entorno local fue claro y seguro para realizar la práctica.",
     "tipo": "likert_1_5"
   },
   {
     "id": "s01-q3",
-    "pregunta": "Observaciones sobre dificultad o claridad",
+    "pregunta": "¿Qué control aplicarías para reducir servicios expuestos innecesariamente?",
     "tipo": "texto_libre"
   }
 ]
