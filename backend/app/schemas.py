@@ -103,3 +103,6 @@ class StudentModuleProgress(BaseModel):
     checkpoints_total: int
     progress_percent: float
     checkpoints: list[CheckpointProgressRecord]
+    
+class GoogleLoginRequest(BaseModel):
+    credential: str

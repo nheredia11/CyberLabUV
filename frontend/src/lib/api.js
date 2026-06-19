@@ -5,7 +5,6 @@ const API_BASE =
 
 const DEV_TOKEN =
   import.meta.env.VITE_CYBERLAB_TOKEN ||
-  localStorage.getItem("cyberlab_token") ||
   "cyberlabuv-local-token";
 
 function buildQuery(params = {}) {
@@ -32,8 +31,9 @@ function getHeaders({ json = true } = {}) {
   }
 
   const sessionToken =
-    localStorage.getItem("cyberlab_session_token") ||
-    localStorage.getItem("auth_token");
+  localStorage.getItem("cyberlab_session_token") ||
+  localStorage.getItem("cyberlab_token") ||
+  localStorage.getItem("auth_token");
 
   if (sessionToken) {
     headers.Authorization = `Bearer ${sessionToken}`;
