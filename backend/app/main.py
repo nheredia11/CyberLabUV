@@ -4,6 +4,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+# Agregar junto a los otros imports de arriba
+from .auth import verify_google_token
+from .schemas import GoogleLoginRequest
 
 from .config import get_settings
 from .content import ContentError, clear_content_cache, load_all_modules, load_catalog, load_module
@@ -109,6 +112,19 @@ def submit_survey(submission: SurveySubmission) -> dict[str, str]:
     save_survey(submission)
     return {"status": "ok", "message": "Encuesta registrada."}
 
+@app.post("/api/auth/google")
+def google_login(payload: GoogleLoginRequest) -> dict:
+    try:
+        user = verify_google_token(payload.credential)
+        return {
+            "user": user,
+            "token": f"google-session-{user['id']}",
+        }
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error validando Google: {str(exc)}") from exc
+
 
 @app.get("/api/students/{student_id}/dashboard", response_model=StudentDashboard, dependencies=[Depends(require_dev_token)])
 def student_dashboard(student_id: str) -> StudentDashboard:
@@ -143,3 +159,27 @@ def student_module_progress(student_id: str, module_id: str) -> StudentModulePro
         return get_student_module_progress(student_id, module_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+def validate_institutional_email(email: str) -> str:
+    normalized_email = email.strip().lower()
+
+    if "@" not in normalized_email:
+        raise HTTPException(
+            status_code=400,
+            detail="El correo no tiene un formato válido.",
+        )
+
+    domain = normalized_email.rsplit("@", 1)[1]
+    allowed_domains = set(settings.google_allowed_domains)
+
+    if domain not in allowed_domains:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Solo cuentas institucionales. "
+                f"Dominio recibido: {domain}. "
+                f"Permitidos: {', '.join(sorted(allowed_domains))}"
+            ),
+        )
+
+    return normalized_email

@@ -22,6 +22,7 @@ function loadGoogleScript() {
     }
 
     const existing = document.querySelector('script[data-google-identity]');
+
     if (existing) {
       existing.addEventListener('load', resolve);
       existing.addEventListener('error', reject);
@@ -60,49 +61,69 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
   }, [theme]);
 
   useEffect(() => {
+    window.__cyberlabGoogleLoginCallback = async (response) => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const result = await api.loginWithGoogle(response.credential);
+
+        localStorage.setItem('cyberlab_user', JSON.stringify(result.user));
+        localStorage.setItem('cyberlab_token', result.token);
+        localStorage.setItem('cyberlab_session_token', result.token);
+
+        onLogin(result.user);
+      } catch (err) {
+        console.error(err);
+        setError(
+          err.message ||
+            'No fue posible iniciar sesión. Verifica que estés usando tu cuenta institucional.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+  }, [onLogin]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function initGoogle() {
       try {
         if (!googleReady) return;
 
         await loadGoogleScript();
 
-        window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback: async (response) => {
-            try {
-              setLoading(true);
-              setError('');
+        if (cancelled) return;
 
-              const result = await api.loginGoogle(response.credential);
+        if (!window.google?.accounts?.id) {
+          setError('No se pudo inicializar Google Identity Services.');
+          return;
+        }
 
-              localStorage.setItem('cyberlab_user', JSON.stringify(result.user));
-              localStorage.setItem('cyberlab_token', result.token);
+        if (window.__cyberlabGoogleInitializedFor !== GOOGLE_CLIENT_ID) {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: (response) => {
+              window.__cyberlabGoogleLoginCallback?.(response);
+            },
+          });
 
-              onLogin(result.user);
-            } catch (err) {
-              console.error(err);
-              setError(
-                err.message ||
-                  'No fue posible iniciar sesión. Verifica que estés usando tu cuenta institucional.'
-              );
-            } finally {
-              setLoading(false);
-            }
-          },
-        });
+          window.__cyberlabGoogleInitializedFor = GOOGLE_CLIENT_ID;
+        }
 
         if (googleButtonRef.current) {
           googleButtonRef.current.innerHTML = '';
-        }
 
-        window.google.accounts.id.renderButton(googleButtonRef.current, {
-          theme: isDark ? 'filled_black' : 'outline',
-          size: 'large',
-          text: 'signin_with',
-          shape: 'pill',
-          logo_alignment: 'left',
-          width: 360,
-        });
+          window.google.accounts.id.renderButton(googleButtonRef.current, {
+            theme: isDark ? 'filled_black' : 'outline',
+            size: 'large',
+            text: 'signin_with',
+            shape: 'pill',
+            logo_alignment: 'left',
+            width: 360,
+          });
+        }
       } catch (err) {
         console.error(err);
         setError('No se pudo cargar el acceso con Google.');
@@ -110,7 +131,11 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
     }
 
     initGoogle();
-  }, [googleReady, onLogin, isDark]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleReady, isDark]);
 
   function toggleTheme() {
     setTheme?.(isDark ? 'light' : 'dark');
@@ -118,7 +143,7 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
 
   return (
     <main className={`login-page-modern ${isDark ? 'dark' : 'light'}`}>
-      <button className="login-theme-toggle" onClick={toggleTheme}>
+      <button className="login-theme-toggle" onClick={toggleTheme} type="button">
         {isDark ? <Sun size={18} /> : <Moon size={18} />}
         <span>{isDark ? 'Modo claro' : 'Modo oscuro'}</span>
       </button>
