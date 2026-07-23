@@ -14,6 +14,11 @@ services:
       - "127.0.0.1:${RECON_PORT:-8083}:5000"
     networks:
       - recon_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
       interval: 10s
@@ -29,6 +34,11 @@ services:
     stdin_open: true
     networks:
       - recon_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
 
 networks:
   recon_net:
