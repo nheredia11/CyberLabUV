@@ -167,3 +167,49 @@ def run_scenario_action(scenario_id: str, action: str) -> tuple[bool, int | None
         return True, returncode, stdout, stderr, f"Acción {normalized_action} ejecutada correctamente para {normalized_id}. URL: {scenario.local_url}"
 
     return True, returncode, stdout, stderr, f"La acción {normalized_action} terminó con código {returncode}."
+
+
+# --- AÑADIR AL FINAL DE scenario_runner.py ---
+
+# LISTA BLANCA DE COMANDOS (Hardening - Previene Command Injection)
+SAFE_COMMANDS = {
+    "S01": [
+        "nmap -sV recon-lab",
+        "curl http://recon-lab:5000/health"
+    ],
+    "S02": [
+        "hydra -l estudiante -P wordlists/demo.txt localhost http-post-form",
+        "curl -i http://127.0.0.1:8081/health"
+    ]
+}
+
+def run_terminal_command(scenario_id: str, command: str) -> tuple[bool, int | None, str, str, str]:
+    settings = get_settings()
+    normalized_id = scenario_id.upper()
+    clean_command = command.strip()
+
+    # 1. Validación estricta de seguridad
+    if normalized_id not in SAFE_COMMANDS or clean_command not in SAFE_COMMANDS.get(normalized_id, []):
+        return False, None, "", "", f"Error de seguridad: El comando '{clean_command}' no está permitido en este escenario."
+
+    # 2. Obtener configuración del escenario
+    scenario = SCENARIOS.get(normalized_id)
+    if not scenario:
+        return False, None, "", "", "Escenario no configurado."
+
+    compose_path = settings.root_dir / scenario.compose_file
+    base_command = _compose_command(compose_path)
+    
+    # 3. Construir el comando para ejecutar DENTRO del contenedor atacante
+    # Asumimos que la máquina atacante siempre se llama {slug}-attacker (ej: recon-attacker)
+    attacker_service = f"{scenario.slug}-attacker"
+    
+    # docker compose -f <file> exec -T <servicio> sh -c "<comando>"
+    exec_cmd = base_command + ["exec", "-T", attacker_service, "sh", "-c", clean_command]
+
+    # 4. Ejecutar y retornar resultados
+    returncode, stdout, stderr = _run_command(exec_cmd, cwd=settings.root_dir)
+
+    if returncode == 0:
+        return True, returncode, stdout, stderr, "Comando ejecutado correctamente."
+    return True, returncode, stdout, stderr, f"El comando falló con código {returncode}."

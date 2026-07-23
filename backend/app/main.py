@@ -30,6 +30,10 @@ from .storage import (
     save_survey,
 )
 
+# Modifica tus imports actuales para que luzcan así:
+from pydantic import BaseModel # Asegúrate de importar BaseModel
+from .scenario_runner import run_scenario_action, run_terminal_command
+
 settings = get_settings()
 
 
@@ -111,6 +115,27 @@ def submit_survey(submission: SurveySubmission) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Módulo no encontrado.")
     save_survey(submission)
     return {"status": "ok", "message": "Encuesta registrada."}
+
+# --- AÑADIR CERCA DE LA LÍNEA 115 EN main.py ---
+
+class TerminalCommandRequest(BaseModel):
+    user_id: str
+    scenario_id: str
+    command: str
+
+@app.post("/api/scenarios/{scenario_id}/command", response_model=ScenarioActionResponse, dependencies=[Depends(require_dev_token)])
+def terminal_command(scenario_id: str, payload: TerminalCommandRequest) -> ScenarioActionResponse:
+    allowed, returncode, stdout, stderr, message = run_terminal_command(scenario_id, payload.command)
+    return ScenarioActionResponse(
+        scenario_id=scenario_id.upper(),
+        action="command",
+        allowed=allowed,
+        returncode=returncode,
+        stdout=stdout[-4000:] if stdout else "",
+        stderr=stderr[-4000:] if stderr else "",
+        message=message,
+    )
+
 
 @app.post("/api/auth/google")
 def google_login(payload: GoogleLoginRequest) -> dict:
