@@ -3,32 +3,32 @@
     "id": "M00",
     "nivel": "Inicial",
     "estado": "Operativo",
-    "titulo": "Induccion y reglas de uso",
-    "descripcion": "Modulo fundacional para explicar etica, alcances y estructura del simulador.",
-    "accion": "Revisar modulo"
+    "titulo": "Inducción y reglas de uso",
+    "descripcion": "Módulo fundacional para explicar ética, alcances y estructura del simulador.",
+    "accion": "Revisar módulo"
   },
   {
     "id": "S01",
-    "nivel": "Basico",
+    "nivel": "Básico",
     "estado": "Configurado",
     "titulo": "Reconocimiento de red y servicios",
-    "descripcion": "Segmento aislado con varios servicios para practicar observacion y registro de hallazgos.",
-    "accion": "bash scripts/run-scenario.sh recon"
+    "descripcion": "Segmento aislado con varios servicios para practicar observación y registro de hallazgos.",
+    "accion": "docker compose -f scenarios/recon/docker-compose.yml up -d"
   },
   {
     "id": "S02",
-    "nivel": "Basico-Intermedio",
+    "nivel": "Básico-intermedio",
     "estado": "Configurado",
-    "titulo": "Autenticacion HTTP debil",
-    "descripcion": "Interfaz propia del laboratorio para estudiar controles de autenticacion y registrar intentos.",
-    "accion": "bash scripts/run-scenario.sh auth_http"
+    "titulo": "Autenticación HTTP débil",
+    "descripcion": "Interfaz propia del laboratorio para estudiar controles de autenticación y registrar intentos.",
+    "accion": "docker compose -f scenarios/auth_http/docker-compose.yml up -d"
   },
   {
     "id": "S03",
     "nivel": "Intermedio",
     "estado": "Plantilla",
     "titulo": "Laboratorio web OWASP",
-    "descripcion": "Base inicial para consolidar practicas de aplicacion web en una siguiente iteracion.",
-    "accion": "bash scripts/run-scenario.sh webapp"
+    "descripcion": "Base inicial para consolidar prácticas de aplicación web en una siguiente iteración.",
+    "accion": "docker compose -f scenarios/webapp/docker-compose.yml up -d"
   }
 ]

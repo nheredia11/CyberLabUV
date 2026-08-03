@@ -3,87 +3,197 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ValleSec Lab - Prototipo de escenarios</title>
+  <title>CyberLab - Tablero local</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
+
 <body>
   <div class="container">
     <header class="nav">
-      <div class="brand">ValleSec Lab</div>
+      <div class="brand">CyberLab</div>
       <nav>
-        <a href="#escenarios">Escenarios</a>
-        <a href="#arquitectura">Arquitectura</a>
-        <a href="#ruta">Ruta</a>
+        <a href="#tablero">Tablero</a>
+        <a href="#control">Escenarios</a>
+        <a href="#modulo">Módulo</a>
+        <a href="#evidencias">Evidencias</a>
+        <a href="#analitica">Analítica</a>
       </nav>
     </header>
 
-    <section class="hero">
+    <section class="hero" id="tablero">
       <article class="card hero-copy">
-        <span class="kicker">Prototipo funcional en progreso</span>
-        <h1>Interfaces y escenarios base para tu tesis</h1>
-        <p>Esta version ya no es solo un smoke test. Ahora presenta una interfaz principal del prototipo, un catalogo de escenarios, un laboratorio HTTP propio y una plantilla clara para seguir construyendo la validacion con estudiantes.</p>
+        <span class="kicker">Prototipo local funcional</span>
+        <h1>Simulador académico para prácticas de ciberseguridad</h1>
+        <p>
+          Tablero local conectado al backend de CyberLab. Permite consultar módulos,
+          iniciar escenarios Docker, registrar checkpoints, guardar encuestas y revisar
+          analíticas básicas del estudiante y del docente.
+        </p>
+
         <div class="cta-row">
-          <a class="btn" href="#escenarios">Ver escenarios</a>
-          <a class="btn secondary" href="#arquitectura">Revisar arquitectura</a>
+          <button class="btn" id="btn-refresh-all">Actualizar tablero</button>
+          <a class="btn secondary" id="current-lab-link" href="#" target="_blank" rel="noreferrer">
+            Abrir laboratorio seleccionado
+          </a>
         </div>
       </article>
+
       <aside class="card hero-side">
-        <div class="mini-metric"><strong>3</strong><span>escenarios iniciales definidos</span></div>
-        <div class="mini-metric"><strong>2</strong><span>interfaces visibles para demostracion</span></div>
-        <div class="mini-metric"><strong>Docker</strong><span>base reproducible para laboratorio local</span></div>
+        <div class="config-box">
+          <label>
+            API backend
+            <input id="api-base" value="http://127.0.0.1:8000">
+          </label>
+
+          <label>
+            Token local
+            <input id="api-token" value="cyberlabuv-local-token">
+          </label>
+
+          <label>
+            Estudiante
+            <input id="student-id" value="nestor">
+          </label>
+
+          <label>
+            Módulo / escenario
+            <select id="module-select"></select>
+          </label>
+
+          <button class="btn full" id="btn-save-config">Guardar configuración</button>
+        </div>
       </aside>
     </section>
 
-    <section class="section" id="escenarios">
-      <h2>Catalogo inicial de escenarios</h2>
-      <p class="lead">Pensado para demostrarle a tu tutor que ya empezaste la fase de configuracion del entorno y que el proyecto avanza hacia un prototipo con recorrido pedagogico, evidencia tecnica e interfaces basicas.</p>
+    <section class="metrics">
+      <article class="metric-card">
+        <span>Backend</span>
+        <strong id="metric-backend">Pendiente</strong>
+        <small id="metric-backend-detail">Sin verificar</small>
+      </article>
+
+      <article class="metric-card">
+        <span>Laboratorio</span>
+        <strong id="metric-lab">Pendiente</strong>
+        <small id="metric-lab-detail">Sin verificar</small>
+      </article>
+
+      <article class="metric-card">
+        <span>Checkpoints</span>
+        <strong id="metric-progress">0 / 0</strong>
+        <small id="metric-progress-detail">Sin datos</small>
+      </article>
+
+      <article class="metric-card">
+        <span>Progreso</span>
+        <strong id="metric-percent">0%</strong>
+        <small>Avance del estudiante</small>
+      </article>
+    </section>
+
+    <section class="section" id="control">
+      <div class="section-head">
+        <div>
+          <h2>Control del escenario seleccionado</h2>
+          <p class="lead">
+            Desde esta sección se puede iniciar, detener, consultar estado y revisar logs
+            del escenario elegido. M00 no tiene contenedor porque corresponde a la inducción.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <article class="card tile">
+          <h3 id="selected-scenario-title">Escenario seleccionado</h3>
+          <p id="selected-scenario-description" class="lead">Cargando información...</p>
+
+          <div class="tag-row" id="selected-scenario-tags"></div>
+
+          <p class="hint">
+            URL local:
+            <code id="current-lab-url">No aplica</code>
+          </p>
+
+          <div class="button-grid">
+            <button class="btn" data-scenario-action="start">Iniciar</button>
+            <button class="btn secondary" data-scenario-action="status">Estado</button>
+            <button class="btn secondary" data-scenario-action="logs">Logs</button>
+            <button class="btn danger" data-scenario-action="stop">Detener</button>
+          </div>
+
+          <button class="btn ghost full" id="btn-check-lab">Verificar laboratorio /health</button>
+        </article>
+
+        <article class="card tile">
+          <h3>Salida del backend</h3>
+          <pre id="scenario-output" class="console">Aún no se ha ejecutado ninguna acción.</pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="modulo">
+      <h2 id="module-heading">Módulo</h2>
+      <p class="lead">
+        Contenido pedagógico leído desde el backend: objetivos, teoría, checkpoints y encuesta.
+      </p>
+
+      <div class="grid-2">
+        <article class="card tile">
+          <h3>Información del módulo</h3>
+          <div id="module-summary">Cargando módulo...</div>
+        </article>
+
+        <article class="card tile">
+          <h3>Teoría</h3>
+          <div id="module-theory" class="markdown-box">Cargando teoría...</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="evidencias">
+      <h2>Checkpoints y evidencias</h2>
+      <p class="lead">
+        Registra la evidencia del estudiante directamente contra el backend local.
+      </p>
+
+      <div id="checkpoint-list" class="checkpoint-list"></div>
+    </section>
+
+    <section class="section" id="encuesta">
+      <h2>Encuesta del módulo</h2>
+      <p class="lead">
+        Instrumento básico de validación pedagógica para el escenario seleccionado.
+      </p>
+
+      <div id="survey-form" class="card tile"></div>
+    </section>
+
+    <section class="section" id="analitica">
+      <h2>Analítica básica</h2>
+
+      <div class="grid-2">
+        <article class="card tile">
+          <h3>Dashboard del estudiante</h3>
+          <pre id="student-dashboard" class="console small">Sin datos.</pre>
+        </article>
+
+        <article class="card tile">
+          <h3>Vista docente</h3>
+          <pre id="teacher-analytics" class="console small">Sin datos.</pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="catalogo">
+      <h2>Catálogo de módulos</h2>
       <div id="scenario-grid" class="grid-3"></div>
     </section>
 
-    <section class="section" id="arquitectura">
-      <h2>Arquitectura de esta iteracion</h2>
-      <div class="grid-2">
-        <article class="card tile">
-          <h3>Capa de interfaz</h3>
-          <p>Landing principal del prototipo y laboratorio web de autenticacion controlada para mostrar progreso visual y facilitar validacion con docentes y estudiantes.</p>
-        </article>
-        <article class="card tile">
-          <h3>Capa de orquestacion</h3>
-          <p>Scripts dedicados por escenario, Compose por laboratorio y variables centralizadas para que el proyecto sea mas mantenible y demostrable.</p>
-        </article>
-        <article class="card tile">
-          <h3>Capa de escenarios</h3>
-          <p>Reconocimiento, autenticacion HTTP y base web OWASP, cada uno con su propia red o despliegue y con margen claro para crecer por iteraciones.</p>
-        </article>
-        <article class="card tile">
-          <h3>Capa pedagogica</h3>
-          <p>Modulos con teoria, checkpoints y encuesta para unir el ejercicio tecnico con evidencia de aprendizaje y material de sustentacion.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="section" id="ruta">
-      <h2>Ruta recomendada de avance</h2>
-      <div class="timeline">
-        <div class="timeline-item">
-          <strong>Semana tecnica 1</strong>
-          <div><h3>Probar catalogo e iniciar S01</h3><p>Levanta el escenario de reconocimiento, toma capturas y registra la primera evidencia de activos visibles dentro de la red aislada.</p></div>
-        </div>
-        <div class="timeline-item">
-          <strong>Semana tecnica 2</strong>
-          <div><h3>Validar S02 con tu tutor</h3><p>Usa la interfaz del laboratorio HTTP para mostrar debilidades observables y cerrar con mitigaciones propuestas.</p></div>
-        </div>
-        <div class="timeline-item">
-          <strong>Siguiente iteracion</strong>
-          <div><h3>Completar S03 y tablero de instructor</h3><p>Agregar persistencia de resultados, mas controles y una vista simple de seguimiento para pruebas con 3 a 10 estudiantes.</p></div>
-        </div>
-      </div>
-    </section>
-
     <footer class="footer">
-      ValleSec Lab · prototipo local para entorno controlado y reproducible.
+      CyberLab · prototipo local para aprendizaje académico, ético y controlado.
     </footer>
   </div>
+
   <script src="./app.js"></script>
 </body>
 </html>

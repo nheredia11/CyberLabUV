@@ -1,39 +1,44 @@
+name: cyberlab_recon
+
 services:
-  student-recon:
-    image: nicolaka/netshoot
-    container_name: valleseclab_student_recon
-    command: ["sh", "-c", "sleep infinity"]
+  recon-lab:
+    build:
+      context: ../common/edu_lab
+      dockerfile: Dockerfile
+    container_name: cyberlab_recon_lab
+    environment:
+      SCENARIO_ID: S01
+      LAB_MODE: recon
+      APP_TITLE: CyberLab - Reconocimiento de red y servicios
+    ports:
+      - "127.0.0.1:${RECON_PORT:-8083}:5000"
+    networks:
+      - recon_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  recon-attacker:
+    image: alpine:3.21
+    container_name: cyberlab_recon_attacker
+    command: ["sh", "-c", "apk add --no-cache nmap curl >/dev/null 2>&1; sleep infinity"]
     tty: true
     stdin_open: true
     networks:
       - recon_net
-
-  target-web:
-    image: nginx:1.27-alpine
-    container_name: valleseclab_target_web
-    volumes:
-      - ./services/recon-landing:/usr/share/nginx/html:ro
-    networks:
-      - recon_net
-
-  target-login:
-    build:
-      context: ../auth_http/app
-      dockerfile: Dockerfile
-    container_name: valleseclab_target_login
-    environment:
-      APP_TITLE: ValleSec Lab Auth Demo
-      DEMO_USER: estudiante
-      DEMO_PASSWORD: laboratorio123
-    networks:
-      - recon_net
-
-  target-cache:
-    image: redis:7-alpine
-    container_name: valleseclab_target_cache
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    networks:
-      - recon_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
 
 networks:
   recon_net:

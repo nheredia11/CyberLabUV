@@ -1,17 +1,17 @@
 [
   {
-    "id": "q1",
-    "pregunta": "La introduccion al entorno fue clara",
+    "id": "m00-q1",
+    "pregunta": "La inducción al entorno controlado fue clara.",
     "tipo": "likert_1_5"
   },
   {
-    "id": "q2",
-    "pregunta": "Comprendo las reglas eticas del laboratorio",
+    "id": "m00-q2",
+    "pregunta": "Comprendo las reglas éticas y académicas del laboratorio.",
     "tipo": "likert_1_5"
   },
   {
-    "id": "q3",
-    "pregunta": "Comentario abierto",
+    "id": "m00-q3",
+    "pregunta": "¿Qué aspecto del simulador necesitas reforzar antes de iniciar los escenarios?",
     "tipo": "texto_libre"
   }
 ]

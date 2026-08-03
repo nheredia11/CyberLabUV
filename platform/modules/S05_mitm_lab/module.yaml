@@ -1,0 +1,12 @@
+id: S05
+titulo: MITM simulado en tráfico no cifrado
+orden: 5
+descripcion: Escenario pedagógico para observar riesgos de comunicación no cifrada mediante una simulación controlada de intermediario.
+objetivos:
+- Comprender el riesgo de transmitir información sin cifrado.
+- Observar eventos simulados de interceptación en un entorno académico.
+- Relacionar la práctica con controles como HTTPS, TLS y validación de certificados.
+- Registrar evidencias y proponer mitigaciones.
+encuesta_obligatoria: true
+checkpoints_obligatorios: true
+comando_inicio: docker compose -f scenarios/mitm_lab/docker-compose.yml up -d

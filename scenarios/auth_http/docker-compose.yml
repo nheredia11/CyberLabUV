@@ -1,28 +1,40 @@
-services:
-  student-auth:
-    image: alpine:3.21
-    container_name: valleseclab_student_auth
-    command: ["sh", "-c", "sleep infinity"]
-    tty: true
-    stdin_open: true
-    networks:
-      - auth_lab_net
+name: cyberlab_auth_http
 
+services:
   auth-lab:
     build:
       context: ./app
       dockerfile: Dockerfile
-    container_name: valleseclab_auth_lab
+    container_name: cyberlab_auth_lab
     environment:
-      APP_TITLE: ValleSec Lab - Auth HTTP Lab
-      DEMO_USER: estudiante
-      DEMO_PASSWORD: laboratorio123
-      FLASK_ENV: production
+      SCENARIO_ID: S02
+      LAB_MODE: auth
+      APP_TITLE: CyberLab - Autenticación HTTP
     ports:
-      - "${AUTH_HTTP_PORT:-8081}:5000"
+      - "127.0.0.1:${AUTH_PORT:-8081}:5000"
     networks:
-      - auth_lab_net
+      - auth_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+    restart: unless-stopped
+
+  auth-attacker:
+    image: alpine:3.21
+    container_name: cyberlab_auth_attacker
+    command: ["sh", "-c", "apk add --no-cache hydra curl >/dev/null 2>&1; sleep infinity"]
+    tty: true
+    stdin_open: true
+    networks:
+      - auth_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
 
 networks:
-  auth_lab_net:
+  auth_net:
     driver: bridge

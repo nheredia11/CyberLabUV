@@ -1,17 +1,17 @@
 [
   {
     "id": "s03-q1",
-    "pregunta": "El escenario web base parece util para una siguiente validacion",
+    "pregunta": "El escenario me permitió relacionar vulnerabilidades web con OWASP Top 10.",
     "tipo": "likert_1_5"
   },
   {
     "id": "s03-q2",
-    "pregunta": "El recorrido entre teoria y practica es entendible",
+    "pregunta": "La práctica fue clara para registrar evidencia técnica.",
     "tipo": "likert_1_5"
   },
   {
     "id": "s03-q3",
-    "pregunta": "Que tema OWASP priorizarias",
+    "pregunta": "¿Qué control aplicarías primero para proteger la aplicación web?",
     "tipo": "texto_libre"
   }
 ]

@@ -1,0 +1,39 @@
+name: cyberlab_web_owasp
+
+services:
+  owasp-lab:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: cyberlab_owasp_lab
+    environment:
+      SCENARIO_ID: S03
+      APP_TITLE: CyberLab - OWASP Top 10
+    ports:
+      - "127.0.0.1:${OWASP_PORT:-8084}:5000"
+    networks:
+      - owasp_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M # ¡Límite estricto añadido!
+    restart: unless-stopped
+
+  owasp-attacker:
+    image: alpine:3.21
+    container_name: cyberlab_owasp_attacker
+    command: ["sh", "-c", "apk add --no-cache curl nmap >/dev/null 2>&1; sleep infinity"]
+    tty: true
+    stdin_open: true
+    networks:
+      - owasp_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M # ¡Límite estricto añadido!
+
+networks:
+  owasp_net:
+    driver: bridge

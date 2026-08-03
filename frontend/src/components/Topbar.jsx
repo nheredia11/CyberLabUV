@@ -1,36 +1,56 @@
-import { Bell, GraduationCap, LogOut } from 'lucide-react';
+import {
+  Bell,
+  LogOut,
+  GraduationCap,
+} from 'lucide-react';
+
+function getInitials(name = '') {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'CL';
+}
 
 export default function Topbar({ title, subtitle, user, onLogout }) {
-  const avatar = user?.avatar || user?.name?.slice(0, 2).toUpperCase() || 'UV';
+  const initials = user?.avatar || getInitials(user?.name);
 
   return (
-    <div className="topbar">
-      <div>
-        <h1 style={{ margin: '0 0 6px' }}>{title}</h1>
-        <div className="muted">{subtitle}</div>
+    <header className="pro-topbar">
+      <div className="pro-topbar-title">
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
       </div>
 
-      <div className="profile">
-        <Bell size={18} />
+      <div className="pro-topbar-actions">
+        <button className="pro-icon-button" title="Notificaciones">
+          <Bell size={19} />
+        </button>
 
-        {user?.picture ? (
-          <img className="avatar-img" src={user.picture} alt={user.name} />
-        ) : (
-          <div className="avatar">{avatar}</div>
-        )}
+        <div className="pro-user-pill">
+          <div className="pro-user-avatar">
+            {initials}
+          </div>
 
-        <div>
-          <strong>{user?.name}</strong>
-          <br />
-          <small className="muted">
-            <GraduationCap size={12} /> {user?.role === 'teacher' ? 'Docente' : 'Estudiante'}
-          </small>
+          <div className="pro-user-info">
+            <strong>{user?.name || 'Usuario CyberLab'}</strong>
+            <span>
+              <GraduationCap size={13} />
+              {user?.role === 'teacher' ? 'Docente' : 'Estudiante'}
+            </span>
+          </div>
         </div>
 
-        <button className="icon-button" onClick={onLogout} title="Cerrar sesión">
-          <LogOut size={18} />
+        <button
+          className="pro-logout-button"
+          onClick={onLogout}
+          title="Cerrar sesión"
+        >
+          <LogOut size={20} />
         </button>
       </div>
-    </div>
+    </header>
   );
 }

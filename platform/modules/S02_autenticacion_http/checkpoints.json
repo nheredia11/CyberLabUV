@@ -3,18 +3,24 @@
     "id": "s02-cp1",
     "titulo": "Acceder a la interfaz del laboratorio",
     "tipo": "confirmacion",
-    "evidencia": "URL local accesible"
+    "evidencia": "URL local accesible y captura o descripción breve de la pantalla inicial"
   },
   {
     "id": "s02-cp2",
-    "titulo": "Describir dos debilidades visibles",
+    "titulo": "Describir dos debilidades visibles de autenticación",
     "tipo": "texto",
-    "evidencia": "Lista corta de debilidades observadas"
+    "evidencia": "Lista corta de debilidades observadas en la aplicación de laboratorio"
   },
   {
     "id": "s02-cp3",
-    "titulo": "Proponer mitigaciones",
+    "titulo": "Registrar evidencia del comportamiento del sistema",
     "tipo": "texto",
-    "evidencia": "Minimo dos controles recomendados"
+    "evidencia": "Descripción de los intentos observados, mensajes del sistema o registros disponibles"
+  },
+  {
+    "id": "s02-cp4",
+    "titulo": "Proponer controles de mitigación",
+    "tipo": "texto",
+    "evidencia": "Mínimo dos controles recomendados para mejorar la autenticación"
   }
 ]

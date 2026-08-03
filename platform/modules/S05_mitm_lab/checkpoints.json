@@ -1,0 +1,26 @@
+[
+  {
+    "id": "s05-cp1",
+    "titulo": "Iniciar el laboratorio MITM simulado",
+    "tipo": "confirmacion",
+    "evidencia": "El laboratorio S05 está disponible en http://127.0.0.1:8086 y responde correctamente en /health"
+  },
+  {
+    "id": "s05-cp2",
+    "titulo": "Enviar mensaje de laboratorio",
+    "tipo": "texto",
+    "evidencia": "Descripción del mensaje de prueba enviado sin incluir datos sensibles"
+  },
+  {
+    "id": "s05-cp3",
+    "titulo": "Observar evento registrado",
+    "tipo": "texto",
+    "evidencia": "Descripción del evento visible en la tabla de eventos del laboratorio"
+  },
+  {
+    "id": "s05-cp4",
+    "titulo": "Proponer mitigaciones para tráfico no cifrado",
+    "tipo": "texto",
+    "evidencia": "Mínimo tres controles recomendados, como HTTPS/TLS, validación de certificados y monitoreo"
+  }
+]

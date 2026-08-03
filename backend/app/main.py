@@ -1,15 +1,55 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+# Agregar junto a los otros imports de arriba
+from .auth import verify_google_token
+from .schemas import GoogleLoginRequest
 
 from .config import get_settings
-from .content import load_module, load_modules
-from .database import init_db
-from .schemas import CheckpointSubmissionIn, GoogleLoginRequest, LoginRequest, ScenarioActionIn, SurveyIn, TeacherNoteIn, TerminalCommandIn
-from .services import analytics, adaptive_feedback, dashboard, get_or_create_google_user, get_user_by_email, list_users, module_progress, run_scenario_action, save_checkpoint, save_note, save_survey, simulate_terminal_command
+from .content import ContentError, clear_content_cache, load_all_modules, load_catalog, load_module
+from .schemas import (
+    CatalogItem,
+    CheckpointSubmission,
+    ModuleDetail,
+    ScenarioActionResponse,
+    StudentDashboard,
+    StudentModuleProgress,
+    SurveySubmission,
+    TeacherAnalytics,
+)
+from .scenario_runner import run_scenario_action
+from .storage import (
+    get_student_dashboard,
+    get_student_module_progress,
+    get_teacher_analytics,
+    init_db,
+    save_checkpoint,
+    save_survey,
+)
+
+# Modifica tus imports actuales para que luzcan así:
+from pydantic import BaseModel # Asegúrate de importar BaseModel
+from .scenario_runner import run_scenario_action, run_terminal_command
+
 settings = get_settings()
-app = FastAPI(title=settings.app_name, version="0.2.0", description="API académica para el simulador CyberLabUV")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(
+    title="CyberLab API",
+    description="Backend local para módulos, checkpoints y orquestación controlada de escenarios.",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -18,91 +58,153 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-def startup() -> None:
-    init_db()
+
+def require_dev_token(x_cyberlab_token: str = Header(default="")) -> None:
+    if x_cyberlab_token != settings.dev_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token local inválido o ausente.",
+        )
+
 
 @app.get("/health")
-def health() -> dict:
+def health() -> dict[str, str | bool]:
     return {
         "status": "ok",
-        "app": "CyberLab API",
-        "environment": "development",
+        "project": settings.project_name,
+        "environment": settings.app_env,
+        "scenario_commands_enabled": settings.allow_scenario_commands,
     }
 
-@app.post("/api/auth/login")
-def login(payload: LoginRequest) -> dict:
-    user = get_user_by_email(payload.email)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario demo no encontrado")
-    return {"user": user, "token": f"demo-token-{user['id']}"}
+
+@app.get("/api/modules", response_model=list[CatalogItem])
+def list_modules() -> list[CatalogItem]:
+    try:
+        return load_catalog()
+    except ContentError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/modules/{module_id}", response_model=ModuleDetail)
+def get_module(module_id: str) -> ModuleDetail:
+    try:
+        return load_module(module_id)
+    except ContentError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/admin/content/reload", dependencies=[Depends(require_dev_token)])
+def reload_content_cache() -> dict[str, str]:
+    clear_content_cache()
+    return {"status": "ok", "message": "Caché de contenidos recargada."}
+
+
+@app.post("/api/progress/checkpoints", dependencies=[Depends(require_dev_token)])
+def submit_checkpoint(submission: CheckpointSubmission) -> dict[str, str]:
+    valid_modules = {module.id for module in load_all_modules()}
+    if submission.module_id.upper() not in valid_modules:
+        raise HTTPException(status_code=404, detail="Módulo no encontrado.")
+    save_checkpoint(submission)
+    return {"status": "ok", "message": "Checkpoint registrado."}
+
+
+@app.post("/api/surveys/responses", dependencies=[Depends(require_dev_token)])
+def submit_survey(submission: SurveySubmission) -> dict[str, str]:
+    valid_modules = {module.id for module in load_all_modules()}
+    if submission.module_id.upper() not in valid_modules:
+        raise HTTPException(status_code=404, detail="Módulo no encontrado.")
+    save_survey(submission)
+    return {"status": "ok", "message": "Encuesta registrada."}
+
+# --- AÑADIR CERCA DE LA LÍNEA 115 EN main.py ---
+
+class TerminalCommandRequest(BaseModel):
+    user_id: str
+    scenario_id: str
+    command: str
+
+@app.post("/api/scenarios/{scenario_id}/command", response_model=ScenarioActionResponse, dependencies=[Depends(require_dev_token)])
+def terminal_command(scenario_id: str, payload: TerminalCommandRequest) -> ScenarioActionResponse:
+    allowed, returncode, stdout, stderr, message = run_terminal_command(scenario_id, payload.command)
+    return ScenarioActionResponse(
+        scenario_id=scenario_id.upper(),
+        action="command",
+        allowed=allowed,
+        returncode=returncode,
+        stdout=stdout[-4000:] if stdout else "",
+        stderr=stderr[-4000:] if stderr else "",
+        message=message,
+    )
+
 
 @app.post("/api/auth/google")
 def google_login(payload: GoogleLoginRequest) -> dict:
     try:
-        user = get_or_create_google_user(payload.credential)
+        user = verify_google_token(payload.credential)
         return {
             "user": user,
             "token": f"google-session-{user['id']}",
         }
-
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
-
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     except Exception as exc:
-        print("ERROR EN LOGIN GOOGLE:", repr(exc))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error interno validando Google: {str(exc)}",
-        ) from exc
+        raise HTTPException(status_code=500, detail=f"Error validando Google: {str(exc)}") from exc
 
-@app.get("/api/users")
-def users(role: str | None = Query(default=None)) -> list[dict]:
-    return list_users(role)
 
-@app.get("/api/modules")
-def modules() -> list[dict]:
-    return load_modules()
+@app.get("/api/students/{student_id}/dashboard", response_model=StudentDashboard, dependencies=[Depends(require_dev_token)])
+def student_dashboard(student_id: str) -> StudentDashboard:
+    return get_student_dashboard(student_id)
 
-@app.get("/api/modules/{module_id}")
-def module_detail(module_id: str, user_id: str = Query(default="ana")) -> dict:
+
+@app.get("/api/teacher/analytics", response_model=TeacherAnalytics, dependencies=[Depends(require_dev_token)])
+def teacher_analytics() -> TeacherAnalytics:
+    return get_teacher_analytics()
+
+
+@app.post("/api/scenarios/{scenario_id}/{action}", response_model=ScenarioActionResponse, dependencies=[Depends(require_dev_token)])
+def scenario_action(scenario_id: str, action: str) -> ScenarioActionResponse:
+    allowed, returncode, stdout, stderr, message = run_scenario_action(scenario_id, action)
+    return ScenarioActionResponse(
+        scenario_id=scenario_id.upper(),
+        action=action.lower(),
+        allowed=allowed,
+        returncode=returncode,
+        stdout=stdout[-4000:],
+        stderr=stderr[-4000:],
+        message=message,
+    )
+    
+@app.get(
+    "/api/students/{student_id}/modules/{module_id}/progress",
+    response_model=StudentModuleProgress,
+    dependencies=[Depends(require_dev_token)],
+)
+def student_module_progress(student_id: str, module_id: str) -> StudentModuleProgress:
     try:
-        module = load_module(module_id)
-        return {**module, "progress": module_progress(user_id, module_id), "feedback": adaptive_feedback(user_id, module_id)}
-    except Exception as exc:
-        raise HTTPException(status_code=404, detail="Módulo no encontrado") from exc
+        return get_student_module_progress(student_id, module_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-@app.get("/api/modules/{module_id}/feedback")
-def module_feedback(module_id: str, user_id: str = Query(default="ana")) -> dict:
-    return adaptive_feedback(user_id, module_id)
+def validate_institutional_email(email: str) -> str:
+    normalized_email = email.strip().lower()
 
-@app.get("/api/students/{user_id}/dashboard")
-def student_dashboard(user_id: str) -> dict:
-    return dashboard(user_id)
+    if "@" not in normalized_email:
+        raise HTTPException(
+            status_code=400,
+            detail="El correo no tiene un formato válido.",
+        )
 
-@app.post("/api/modules/{module_id}/checkpoints")
-def checkpoint(module_id: str, payload: CheckpointSubmissionIn) -> dict:
-    return save_checkpoint(module_id, payload.model_dump())
+    domain = normalized_email.rsplit("@", 1)[1]
+    allowed_domains = set(settings.google_allowed_domains)
 
-@app.post("/api/modules/{module_id}/surveys")
-def survey(module_id: str, payload: SurveyIn) -> dict:
-    return save_survey(module_id, payload.model_dump())
+    if domain not in allowed_domains:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Solo cuentas institucionales. "
+                f"Dominio recibido: {domain}. "
+                f"Permitidos: {', '.join(sorted(allowed_domains))}"
+            ),
+        )
 
-@app.post("/api/scenarios/action")
-def scenario_action(payload: ScenarioActionIn) -> dict:
-    return run_scenario_action(payload.user_id, payload.scenario_id, payload.action)
-
-@app.post("/api/scenarios/terminal")
-def scenario_terminal(payload: TerminalCommandIn) -> dict:
-    return simulate_terminal_command(payload.user_id, payload.scenario_id, payload.command)
-
-@app.get("/api/teacher/analytics")
-def teacher_analytics() -> dict:
-    return analytics()
-
-@app.post("/api/teacher/notes")
-def teacher_note(payload: TeacherNoteIn) -> dict:
-    return save_note(payload.model_dump())
+    return normalized_email

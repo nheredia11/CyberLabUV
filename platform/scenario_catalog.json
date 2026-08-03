@@ -1,11 +1,11 @@
 [
   {
     "id": "M00",
-    "titulo": "Induccion y reglas de uso",
+    "titulo": "Inducción y reglas de uso",
     "tipo": "fundacional",
     "estado": "operativo",
     "nivel": "Inicial",
-    "frameworks": ["Etica", "NIST Identify"],
+    "frameworks": ["Ética académica", "NIST Identify"],
     "duracion_estimada": "15 min",
     "ruta": "platform/modules/M00_induccion"
   },
@@ -14,29 +14,49 @@
     "titulo": "Reconocimiento de red y servicios",
     "tipo": "escenario",
     "estado": "configurado",
-    "nivel": "Basico",
+    "nivel": "Básico",
     "frameworks": ["MITRE ATT&CK T1046", "NIST Identify"],
     "duracion_estimada": "35 min",
     "ruta": "platform/modules/S01_reconocimiento"
   },
   {
     "id": "S02",
-    "titulo": "Autenticacion HTTP debil en entorno controlado",
+    "titulo": "Autenticación HTTP débil en entorno controlado",
     "tipo": "escenario",
     "estado": "configurado",
-    "nivel": "Basico-Intermedio",
+    "nivel": "Básico-intermedio",
     "frameworks": ["OWASP A07", "NIST Protect/Detect"],
     "duracion_estimada": "40 min",
     "ruta": "platform/modules/S02_autenticacion_http"
   },
   {
     "id": "S03",
-    "titulo": "Aplicacion web vulnerable para practicas OWASP",
+    "titulo": "Aplicación web vulnerable para prácticas OWASP",
     "tipo": "escenario",
-    "estado": "plantilla",
+    "estado": "configurado",
     "nivel": "Intermedio",
     "frameworks": ["OWASP Top 10", "MITRE ATT&CK Initial Access"],
     "duracion_estimada": "50 min",
     "ruta": "platform/modules/S03_web_basico"
+  },
+  {
+    "id": "S04",
+    "titulo": "Autenticación simulada sobre servicios SSH y FTP",
+    "tipo": "escenario",
+    "estado": "configurado",
+    "nivel": "Básico-intermedio",
+    "frameworks": ["MITRE ATT&CK T1110", "NIST Protect/Detect"],
+    "duracion_estimada": "40 min",
+    "ruta": "platform/modules/S04_auth_services"
+  },
+  {
+    "id": "S05",
+    "titulo": "MITM simulado en tráfico no cifrado",
+    "tipo": "escenario",
+    "estado": "configurado",
+    "nivel": "Intermedio",
+    "frameworks": ["MITRE ATT&CK Collection", "NIST Protect/Detect"],
+    "duracion_estimada": "45 min",
+    "ruta": "platform/modules/S05_mitm_lab"
   }
 ]
