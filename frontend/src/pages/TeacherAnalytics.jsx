@@ -20,7 +20,7 @@ export default function TeacherAnalytics({ onBack }) {
     setLoading(true);
     try {
       const response = await fetch("http://localhost:8000/api/progress/", {
-        headers: { "x-cyberlab-token": "dev-token-secret" }
+        headers: { "Content-Type": "application/json", "x-cyberlab-token": "dev-token-secret" }
       });
       if (response.ok) {
         const data = await response.json();
