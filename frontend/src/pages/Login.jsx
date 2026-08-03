@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Sun,
   TerminalSquare,
+  User,
+  Users
 } from 'lucide-react';
 import { api } from '../lib/api.js';
 
@@ -52,6 +54,9 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
   const googleButtonRef = useRef(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // NUEVO: Estado para guardar el rol seleccionado antes del login
+  const [selectedRole, setSelectedRole] = useState('student'); // 'student' o 'teacher'
 
   const googleReady = isGoogleConfigured();
   const isDark = theme === 'dark';
@@ -67,12 +72,15 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
         setError('');
 
         const result = await api.loginWithGoogle(response.credential);
+        
+        // Inyectamos el rol seleccionado al objeto de usuario
+        const userData = { ...result.user, role: selectedRole };
 
-        localStorage.setItem('cyberlab_user', JSON.stringify(result.user));
+        localStorage.setItem('cyberlab_user', JSON.stringify(userData));
         localStorage.setItem('cyberlab_token', result.token);
         localStorage.setItem('cyberlab_session_token', result.token);
 
-        onLogin(result.user);
+        onLogin(userData);
       } catch (err) {
         console.error(err);
         setError(
@@ -83,7 +91,7 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
         setLoading(false);
       }
     };
-  }, [onLogin]);
+  }, [onLogin, selectedRole]); // Añadimos selectedRole a las dependencias
 
   useEffect(() => {
     let cancelled = false;
@@ -135,10 +143,24 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
     return () => {
       cancelled = true;
     };
-  }, [googleReady, isDark]);
+  }, [googleReady, isDark, selectedRole]); // Re-renderizar si cambia el rol
 
   function toggleTheme() {
     setTheme?.(isDark ? 'light' : 'dark');
+  }
+
+  // NUEVO: Función para saltarse Google durante el desarrollo
+  function handleDevLogin() {
+    const mockUser = {
+      id: selectedRole === 'teacher' ? 'profesor-local' : 'student-local-01',
+      email: selectedRole === 'teacher' ? 'profesor@correounivalle.edu.co' : 'estudiante@correounivalle.edu.co',
+      name: selectedRole === 'teacher' ? 'Profesor CyberLab' : 'Estudiante Demo',
+      role: selectedRole
+    };
+    
+    localStorage.setItem('cyberlab_user', JSON.stringify(mockUser));
+    localStorage.setItem('cyberlab_token', 'dev-token-secret');
+    onLogin(mockUser);
   }
 
   return (
@@ -163,29 +185,27 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
         <div className="login-hero-copy minimal">
           <span className="login-eyebrow">
             <GraduationCap size={16} />
-            Plataforma académica de práctica
+            Plataforma académica
           </span>
 
           <h1>
-            Aprende ciberseguridad practicando en entornos controlados
+            Aprende y evalúa ciberseguridad en entornos controlados
           </h1>
 
           <p>
-            Accede a escenarios guiados, registra evidencias de tu práctica y revisa
-            tu progreso dentro de una ruta de aprendizaje diseñada para apoyar el
-            curso de ciberseguridad.
+            Accede como estudiante para resolver escenarios prácticos o como docente para evaluar el desempeño y revisar evidencias cualitativas.
           </p>
         </div>
 
         <div className="login-feature-row">
           <div>
             <TerminalSquare size={19} />
-            <span>Laboratorios reproducibles</span>
+            <span>Laboratorios Docker</span>
           </div>
 
           <div>
             <Activity size={19} />
-            <span>Seguimiento del progreso</span>
+            <span>Checkpoints y Evidencias</span>
           </div>
 
           <div>
@@ -203,23 +223,45 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
           </span>
 
           <h2>Iniciar sesión</h2>
+          <p>Selecciona tu rol e ingresa con tu cuenta institucional.</p>
+        </div>
 
-          <p>
-            Ingresa con tu cuenta institucional para continuar tu ruta de aprendizaje.
-          </p>
+        {/* NUEVO: Selector de Roles */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', width: '100%', maxWidth: '360px', margin: '0 auto 20px auto' }}>
+          <button 
+            type="button"
+            onClick={() => setSelectedRole('student')}
+            style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'student' ? '#2ea043' : '#30363d'}`, borderRadius: '8px', background: selectedRole === 'student' ? '#2ea04315' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
+          >
+            <User size={24} color={selectedRole === 'student' ? '#2ea043' : '#8b949e'} />
+            <strong style={{ fontSize: '14px' }}>Estudiante</strong>
+          </button>
+          
+          <button 
+            type="button"
+            onClick={() => setSelectedRole('teacher')}
+            style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'teacher' ? '#1f6feb' : '#30363d'}`, borderRadius: '8px', background: selectedRole === 'teacher' ? '#1f6feb15' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
+          >
+            <Users size={24} color={selectedRole === 'teacher' ? '#1f6feb' : '#8b949e'} />
+            <strong style={{ fontSize: '14px' }}>Docente</strong>
+          </button>
         </div>
 
         <div className="login-google-area">
           {googleReady ? (
             <div className="google-button-wrapper modern" ref={googleButtonRef} />
           ) : (
-            <div className="google-pending-card modern">
-              <div>
-                <strong>Acceso institucional en configuración</strong>
-                <p>
-                  Falta configurar el Client ID de Google para habilitar el ingreso.
-                </p>
+            <div className="google-pending-card modern" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+                <strong>Modo Desarrollo Local</strong>
+                <p>Google Auth no configurado. Usa el ingreso temporal para avanzar.</p>
               </div>
+              <button 
+                onClick={handleDevLogin}
+                style={{ width: '100%', padding: '12px', background: selectedRole === 'teacher' ? '#1f6feb' : '#2ea043', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Entrar como {selectedRole === 'teacher' ? 'Docente' : 'Estudiante'} (Dev)
+              </button>
             </div>
           )}
         </div>
@@ -227,7 +269,7 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
         {loading && (
           <div className="login-loading-modern">
             <span className="loader-dot" />
-            Validando tu cuenta institucional...
+            Validando tu cuenta...
           </div>
         )}
 
@@ -237,33 +279,11 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
           </div>
         )}
 
-        <div className="login-security-list minimal">
-          <div>
-            <CheckCircle2 size={17} />
-            <span>Validación con cuenta institucional.</span>
-          </div>
-
-          <div>
-            <CheckCircle2 size={17} />
-            <span>Progreso asociado al estudiante.</span>
-          </div>
-
-          <div>
-            <CheckCircle2 size={17} />
-            <span>Prácticas guiadas en ambiente controlado.</span>
-          </div>
-        </div>
-
-        <div className="login-bottom-note minimal">
+        <div className="login-bottom-note minimal" style={{ marginTop: '30px' }}>
           <LockKeyhole size={18} />
           <p>
             El acceso está restringido a usuarios autorizados de la Universidad del Valle.
           </p>
-        </div>
-
-        <div className="login-card-footer">
-          <span>CyberLab</span>
-          <ArrowRight size={16} />
         </div>
       </section>
     </main>

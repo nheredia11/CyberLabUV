@@ -15,7 +15,7 @@
     "marked": "^18.0.5",
     "react": "latest",
     "react-dom": "latest",
-    "recharts": "latest",
+    "recharts": "^3.10.1",
     "vite": "latest"
   }
 }

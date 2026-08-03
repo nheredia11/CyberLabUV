@@ -12,8 +12,7 @@ import { api } from './lib/api.js';
 import './styles/theme.css';
 
 export default function App() {
-  const [view, setView] = useState('dashboard');
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState('dark');
   const [dashboard, setDashboard] = useState(null);
   const [selectedModule, setSelectedModule] = useState('S02');
   const [user, setUser] = useState(() => {
@@ -21,7 +20,13 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const userId = user?.id || 'ana';
+  // NUEVO: Control de vista inicial según el rol
+  const [view, setView] = useState(() => {
+    if (user?.role === 'teacher') return 'teacher';
+    return 'dashboard';
+  });
+
+  const userId = user?.id || 'demo-student';
 
   const refreshDashboard = () =>
     api.dashboard(userId).then(setDashboard).catch(console.error);
@@ -40,9 +45,11 @@ export default function App() {
 
   useEffect(() => {
     if (user) {
+      // Si el usuario acaba de iniciar sesión, forzamos la ruta según rol
+      setView(user.role === 'teacher' ? 'teacher' : 'dashboard');
       refreshDashboard();
     }
-  }, [userId]);
+  }, [user?.id, user?.role]); // Actualizado para reaccionar si cambia el rol
 
   const titles = useMemo(() => ({
     dashboard: [
@@ -77,7 +84,7 @@ export default function App() {
       'Cadena de calidad',
       'Validación técnica, funcional y pedagógica.',
     ],
-  }), [user]);
+  }), []);
 
   if (!user) {
     return <Login 
@@ -96,6 +103,7 @@ export default function App() {
         setView={setView}
         theme={theme}
         setTheme={setTheme}
+        userRole={user.role} // Pasamos el rol al Sidebar para que oculte botones
       />
 
       <main className="main">
@@ -106,6 +114,7 @@ export default function App() {
           onLogout={handleLogout}
         />
 
+        {/* --- VISTAS COMUNES / ESTUDIANTES --- */}
         {view === 'dashboard' && (
           <Dashboard
             data={dashboard}
@@ -117,7 +126,7 @@ export default function App() {
           />
         )}
 
-        {view === 'route' && (
+        {view === 'route' && user.role !== 'teacher' && (
           <LearningRoute
             selectedModule={selectedModule}
             setSelectedModule={setSelectedModule}
@@ -127,9 +136,9 @@ export default function App() {
           />
         )}
 
-        {view === 'practice' && <Practice userId={userId} />}
+        {view === 'practice' && user.role !== 'teacher' && <Practice userId={userId} />}
 
-        {view === 'results' && (
+        {view === 'results' && user.role !== 'teacher' && (
           <Results
             data={dashboard}
             user={user}
@@ -137,12 +146,12 @@ export default function App() {
           />
         )}
         
-        {view === 'teacher' && <TeacherAnalytics />}
+        {/* --- VISTA EXCLUSIVA DOCENTE --- */}
+        {view === 'teacher' && user.role === 'teacher' && <TeacherAnalytics />}
 
+        {/* --- VISTAS ESTÁTICAS --- */}
         {view === 'resources' && <Resources />}
-
         {view === 'templates' && <Templates />}
-
         {view === 'quality' && <Quality />}
       </main>
     </div>
