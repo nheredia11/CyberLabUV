@@ -115,7 +115,7 @@ def submit_checkpoint(payload: CheckpointPayload) -> dict[str, str]:
     SUBMISSIONS_DB.append(submission)
     return {"status": "success", "message": "Evidencias guardadas", "submission_id": submission["id"]}
 
-@app.get("/api/progress/", dependencies=[Depends(require_dev_token)])
+@app.get("/api/progress/")
 def get_all_progress():
     # Retornar todas las entregas al panel del profesor (TeacherAnalytics)
     return SUBMISSIONS_DB
