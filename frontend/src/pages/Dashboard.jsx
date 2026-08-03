@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo } from "react";
 import {
   Award,
   BookOpen,
@@ -16,15 +16,31 @@ import {
   TerminalSquare,
   Trophy,
   UserRound,
-} from 'lucide-react';
-import { ProgressBar } from '../components/Cards.jsx';
+} from "lucide-react";
+
+// NUEVO: ProgressBar nativa
+function ProgressBar({ value }) {
+  const percent = Math.max(0, Math.min(100, Number(value) || 0));
+  return (
+    <div style={{ width: '100%', backgroundColor: '#21262d', borderRadius: '4px', height: '8px', overflow: 'hidden', margin: '8px 0' }}>
+      <div 
+        style={{ 
+          height: '100%', 
+          backgroundColor: percent >= 85 ? '#3fb950' : percent >= 50 ? '#d2a8ff' : '#58a6ff', 
+          width: `${percent}%`,
+          transition: 'width 0.4s ease-in-out'
+        }} 
+      />
+    </div>
+  );
+}
 
 function clamp(value = 0) {
   return Math.max(0, Math.min(100, Number(value) || 0));
 }
 
-function firstName(name = '') {
-  return name?.split(' ')?.[0] || 'estudiante';
+function firstName(name = "") {
+  return name?.split(" ")?.[0] || "estudiante";
 }
 
 function getRecommendedModule(modules = []) {
@@ -35,393 +51,159 @@ function getRecommendedModule(modules = []) {
   );
 }
 
-function getStatus(percent = 0) {
-  if (percent >= 100) return { label: 'Completado', className: 'done' };
-  if (percent >= 60) return { label: 'Avanzado', className: 'progress' };
-  if (percent > 0) return { label: 'En curso', className: 'started' };
-  return { label: 'Pendiente', className: 'pending' };
-}
+export default function Dashboard({ data, user, userId, setView, setSelectedModule, refreshDashboard }) {
+  const studentName = firstName(user?.name);
 
-function StatusPill({ percent }) {
-  const status = getStatus(percent);
-
-  return (
-    <span className={`dash-status ${status.className}`}>
-      {status.label}
-    </span>
-  );
-}
-
-function MetricCard({ icon: Icon, value, label }) {
-  return (
-    <article className="dash-metric-card">
-      <span>
-        <Icon size={22} />
-      </span>
-
-      <div>
-        <strong>{value}</strong>
-        <small>{label}</small>
-      </div>
-    </article>
-  );
-}
-
-function ProgressCircle({ value = 0 }) {
-  const percent = clamp(value);
-  const deg = percent * 3.6;
-
-  return (
-    <div className="dash-progress-circle">
-      <div
-        className="dash-progress-ring"
-        style={{
-          background: `conic-gradient(var(--accent) ${deg}deg, rgba(255,255,255,.22) 0deg)`,
-        }}
-      >
-        <div>
-          <strong>{percent}%</strong>
-          <span>avance</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StepItem({ icon: Icon, label, active, done }) {
-  return (
-    <div className={`dash-step ${active ? 'active' : ''} ${done ? 'done' : ''}`}>
-      <span>
-        {done ? <CheckCircle2 size={16} /> : <Icon size={16} />}
-      </span>
-      <strong>{label}</strong>
-    </div>
-  );
-}
-
-function ModuleCard({ module, index, onOpen, selected }) {
-  const percent = clamp(module.progress?.percent);
-  const completed = module.progress?.completed_checkpoints || 0;
-  const total = module.progress?.total_checkpoints || 0;
-
-  return (
-    <button
-      className={`dash-module-card ${selected ? 'selected' : ''}`}
-      onClick={() => onOpen(module.id)}
-    >
-      <div className="dash-module-head">
-        <span className="dash-module-index">{String(index + 1).padStart(2, '0')}</span>
-        <StatusPill percent={percent} />
-      </div>
-
-      <h3>{module.titulo}</h3>
-
-      <ProgressBar value={percent} />
-
-      <div className="dash-module-foot">
-        <span>{percent}%</span>
-        <span>{completed}/{total} checkpoints</span>
-      </div>
-    </button>
-  );
-}
-
-export default function Dashboard({
-  data,
-  user,
-  userId,
-  setView,
-  setSelectedModule,
-  refreshDashboard,
-}) {
   const modules = data?.modules || [];
-
   const recommended = useMemo(() => getRecommendedModule(modules), [modules]);
 
   const generalPercent = clamp(data?.general_percent);
   const completedModules = data?.completed_modules || 0;
   const totalModules = data?.total_modules || modules.length || 0;
-
-  const completedCheckpoints = modules.reduce(
-    (acc, module) => acc + (module.progress?.completed_checkpoints || 0),
-    0,
-  );
-
-  const totalCheckpoints = modules.reduce(
-    (acc, module) => acc + (module.progress?.total_checkpoints || 0),
-    0,
-  );
+  
+  const activeModulesCount = modules.filter((m) => clamp(m.progress?.percent) > 0).length;
 
   const currentPercent = clamp(recommended?.progress?.percent);
-  const currentCompleted = recommended?.progress?.completed_checkpoints || 0;
-  const currentTotal = recommended?.progress?.total_checkpoints || 0;
 
-  const theoryDone = currentPercent > 0;
-  const practiceDone = currentCompleted > 0;
-  const checkpointsDone = currentTotal > 0 && currentCompleted >= currentTotal;
-  const feedbackReady = checkpointsDone || currentPercent >= 100;
-
-  function openModule(moduleId) {
-    setSelectedModule(moduleId);
-    setView('practice');
+  function handleStartModule(moduleId) {
+    if (setSelectedModule) setSelectedModule(moduleId);
+    if (setView) setView("route");
   }
 
   function openRecommended() {
-    openModule(recommended?.id || 'S02');
+    handleStartModule(recommended?.id || "S02");
   }
 
   if (!data) {
     return (
-      <div className="dash-student">
-        <section className="dash-loading">
-          <div className="dash-loading-icon" />
-          <div>
-            <h3>Cargando tu espacio de aprendizaje...</h3>
-            <p>Estamos preparando tus módulos y avances.</p>
-          </div>
-        </section>
+      <div style={{ padding: '60px', textAlign: 'center', color: '#8b949e' }}>
+        <h3>Cargando panel de aprendizaje...</h3>
+        <p>Sincronizando con el servidor local de CyberLab.</p>
       </div>
     );
   }
 
   return (
-    <div className="dash-student">
-      <section className="dash-hero">
-        <div className="dash-hero-copy">
-          <span className="dash-badge">
-            <ShieldCheck size={15} />
-            Sesión institucional activa
+    <div className="dashboard-page" style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      
+      {/* SECCIÓN 1: BIENVENIDA Y RESUMEN GENERAL */}
+      <section style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', background: '#161b22', padding: '30px', borderRadius: '8px', border: '1px solid #30363d' }}>
+        <div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', background: '#21262d', color: '#c9d1d9', padding: '4px 10px', borderRadius: '12px', marginBottom: '10px' }}>
+            <ShieldCheck size={15} /> Sesión activa
           </span>
-
-          <h1>
-            Hola, {firstName(user?.name)}. Sigue tu práctica en CyberLab.
+          <h1 style={{ color: '#c9d1d9', margin: '10px 0', fontSize: '28px' }}>
+            Hola, {studentName} 👋
           </h1>
-
-          <p>
-            Tu ruta está organizada por módulos, práctica local, checkpoints y retroalimentación.
+          <p style={{ color: '#8b949e', margin: 0, fontSize: '15px' }}>
+            {generalPercent === 0
+              ? "Bienvenido al simulador. Empieza tu entrenamiento con el módulo de inducción."
+              : generalPercent >= 100
+              ? "¡Felicidades! Has completado todos los laboratorios disponibles."
+              : `Llevas un ${generalPercent}% de avance en tu formación. ¡Sigue así!`}
           </p>
-
-          <div className="dash-hero-actions">
-            <button className="dash-primary-btn" onClick={openRecommended}>
-              <Target size={17} />
-              Continuar
+          
+          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+            <button onClick={openRecommended} style={{ padding: '10px 20px', background: '#2ea043', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Target size={17} /> Continuar misión
             </button>
-
-            <button className="dash-secondary-btn" onClick={() => setView('practice')}>
-              <TerminalSquare size={17} />
-              Laboratorio
+            <button onClick={() => setView('practice')} style={{ padding: '10px 20px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <TerminalSquare size={17} /> Laboratorio Libre
             </button>
-
-            <button className="dash-ghost-btn" onClick={refreshDashboard}>
+            <button onClick={refreshDashboard} style={{ padding: '10px', background: 'transparent', color: '#8b949e', border: 'none', cursor: 'pointer' }} title="Actualizar datos">
               <RefreshCw size={17} />
-              Actualizar
             </button>
           </div>
         </div>
-
-        <div className="dash-hero-progress">
-          <ProgressCircle value={generalPercent} />
-          <strong>Progreso general</strong>
-          <span>{completedModules}/{totalModules} módulos</span>
+        
+        <div style={{ textAlign: 'center', background: '#0d1117', padding: '20px 30px', borderRadius: '8px', border: '1px solid #30363d', minWidth: '150px' }}>
+          <strong style={{ display: 'block', fontSize: '36px', color: '#3fb950', lineHeight: '1' }}>{generalPercent}%</strong>
+          <span style={{ color: '#8b949e', fontSize: '13px', display: 'block', marginTop: '5px' }}>Progreso Global</span>
+          <ProgressBar value={generalPercent} />
         </div>
       </section>
 
-      <section className="dash-metrics">
-        <MetricCard
-          icon={BookOpen}
-          value={`${completedModules}/${totalModules}`}
-          label="Módulos"
-        />
-
-        <MetricCard
-          icon={ClipboardCheck}
-          value={`${completedCheckpoints}/${totalCheckpoints}`}
-          label="Checkpoints"
-        />
-
-        <MetricCard
-          icon={Flame}
-          value={data.points || 0}
-          label="Puntos"
-        />
-
-        <MetricCard
-          icon={Award}
-          value={data.badges || 0}
-          label="Insignias"
-        />
-      </section>
-
-      <section className="dash-layout">
-        <article className="dash-card dash-current-module">
-          <div className="dash-card-head">
-            <div>
-              <span className="dash-mini-label">Misión actual</span>
-              <h2>{recommended?.titulo || 'Módulo recomendado'}</h2>
-            </div>
-
-            <StatusPill percent={currentPercent} />
-          </div>
-
-          <div className="dash-module-progress-row">
-            <strong>{currentPercent}%</strong>
-            <ProgressBar value={currentPercent} />
-          </div>
-
-          <div className="dash-steps">
-            <StepItem icon={GraduationCap} label="Teoría" done={theoryDone} active={!theoryDone} />
-            <StepItem icon={TerminalSquare} label="Práctica" done={practiceDone} active={theoryDone && !practiceDone} />
-            <StepItem icon={ClipboardCheck} label="Evidencia" done={checkpointsDone} active={practiceDone && !checkpointsDone} />
-            <StepItem icon={Lightbulb} label="Feedback" done={feedbackReady} active={checkpointsDone && !feedbackReady} />
-          </div>
-
-          <div className="dash-feedback-box">
-            <Lightbulb size={21} />
-
-            <div>
-              <strong>{recommended?.feedback?.level || 'Pendiente'}</strong>
-              <p>
-                {recommended?.feedback?.message ||
-                  'Empieza por revisar la teoría y luego ejecuta el laboratorio guiado.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="dash-card-actions">
-            <button className="dash-primary-btn full" onClick={openRecommended}>
-              Ir al módulo
-              <ChevronRight size={16} />
-            </button>
-
-            <button className="dash-secondary-btn full" onClick={() => setView('results')}>
-              Ver resultados
-            </button>
-          </div>
-        </article>
-
-        <aside className="dash-side">
-          <article className="dash-card dash-account">
-            <div className="dash-account-top">
-              {user?.picture ? (
-                <img src={user.picture} alt={user.name} />
-              ) : (
-                <span>
-                  <UserRound size={22} />
-                </span>
-              )}
-
-              <div>
-                <strong>{user?.name}</strong>
-                <small>{user?.email}</small>
-              </div>
-            </div>
-
-            <div className="dash-account-meta">
-              <span>Rol</span>
-              <strong>{user?.role === 'teacher' ? 'Docente' : 'Estudiante'}</strong>
-            </div>
-
-            <div className="dash-account-meta">
-              <span>ID de sesión</span>
-              <strong>{userId}</strong>
-            </div>
-          </article>
-
-          <article className="dash-card dash-lab">
-            <div className="dash-card-head compact">
-              <div>
-                <span className="dash-mini-label">Laboratorio</span>
-                <h2>Listo para practicar</h2>
-              </div>
-            </div>
-
-            <div className="dash-lab-items">
-              <div>
-                <TerminalSquare size={18} />
-                <span>Terminal guiada</span>
-                <strong>Lista</strong>
-              </div>
-
-              <div>
-                <ShieldCheck size={18} />
-                <span>Ambiente</span>
-                <strong>Seguro</strong>
-              </div>
-
-              <div>
-                <Clock3 size={18} />
-                <span>Sincronización</span>
-                <strong>Activa</strong>
-              </div>
-            </div>
-
-            <button className="dash-secondary-btn full" onClick={() => setView('practice')}>
-              Abrir práctica local
-            </button>
-          </article>
-        </aside>
-      </section>
-
-      <section className="dash-card dash-route">
-        <div className="dash-route-head">
+      {/* SECCIÓN 2: TARJETAS DE ESTADÍSTICAS */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '40px' }}>
+        <div style={{ background: '#161b22', padding: '20px', borderRadius: '8px', border: '1px solid #30363d', display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ background: '#21262d', padding: '12px', borderRadius: '8px', color: '#58a6ff' }}><BookOpen size={24} /></div>
           <div>
-            <span className="dash-mini-label">Ruta de aprendizaje</span>
-            <h2>Avance por escenario</h2>
+            <strong style={{ fontSize: '22px', color: '#c9d1d9', display: 'block' }}>{completedModules} / {totalModules}</strong>
+            <span style={{ color: '#8b949e', fontSize: '13px' }}>Módulos completados</span>
           </div>
+        </div>
+        <div style={{ background: '#161b22', padding: '20px', borderRadius: '8px', border: '1px solid #30363d', display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ background: '#21262d', padding: '12px', borderRadius: '8px', color: '#d2a8ff' }}><TerminalSquare size={24} /></div>
+          <div>
+            <strong style={{ fontSize: '22px', color: '#c9d1d9', display: 'block' }}>{activeModulesCount}</strong>
+            <span style={{ color: '#8b949e', fontSize: '13px' }}>Laboratorios en curso</span>
+          </div>
+        </div>
+        <div style={{ background: '#161b22', padding: '20px', borderRadius: '8px', border: '1px solid #30363d', display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ background: '#21262d', padding: '12px', borderRadius: '8px', color: '#e3b341' }}><Award size={24} /></div>
+          <div>
+            <strong style={{ fontSize: '22px', color: '#c9d1d9', display: 'block' }}>{data?.points || 0}</strong>
+            <span style={{ color: '#8b949e', fontSize: '13px' }}>Puntos de experiencia</span>
+          </div>
+        </div>
+      </section>
 
-          <button className="dash-ghost-link" onClick={() => setView('route')}>
-            Ver ruta completa
-            <ChevronRight size={16} />
+      {/* SECCIÓN 3: LISTADO DINÁMICO DE MÓDULOS */}
+      <section>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #30363d', paddingBottom: '10px', marginBottom: '20px' }}>
+          <h2 style={{ color: '#c9d1d9', margin: 0, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <GraduationCap size={22} color="#8b949e" />
+            Ruta de Aprendizaje
+          </h2>
+          <button onClick={() => setView('route')} style={{ background: 'transparent', color: '#58a6ff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '14px' }}>
+            Ver detalles <ChevronRight size={16} />
           </button>
         </div>
 
-        <div className="dash-modules-grid">
-          {modules.map((module, index) => (
-            <ModuleCard
-              key={module.id}
-              module={module}
-              index={index}
-              selected={module.id === recommended?.id}
-              onOpen={openModule}
-            />
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          {modules.length === 0 ? (
+            <div style={{ padding: '30px', textAlign: 'center', background: '#161b22', borderRadius: '8px', border: '1px dashed #30363d', color: '#8b949e' }}>
+              No se encontraron módulos. Verifica la conexión con el servidor.
+            </div>
+          ) : (
+            modules.map((mod) => {
+              const pct = clamp(mod.progress?.percent);
+              const isCompleted = pct === 100;
+              const isStarted = pct > 0 && pct < 100;
+
+              return (
+                <article 
+                  key={mod.id} 
+                  style={{ background: '#161b22', padding: '20px 25px', borderRadius: '8px', border: `1px solid ${mod.id === recommended?.id ? '#58a6ff' : '#30363d'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} 
+                  onClick={() => handleStartModule(mod.id)}
+                >
+                  <div style={{ flex: 1, paddingRight: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                      <span style={{ background: isCompleted ? '#2ea04320' : isStarted ? '#d2a8ff20' : '#21262d', color: isCompleted ? '#3fb950' : isStarted ? '#d2a8ff' : '#8b949e', padding: '4px 10px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                        {mod.id}
+                      </span>
+                      <h3 style={{ margin: 0, color: '#c9d1d9', fontSize: '18px' }}>{mod.titulo || mod.title}</h3>
+                      {isCompleted && <CheckCircle2 size={18} color="#3fb950" />}
+                    </div>
+                    <p style={{ margin: 0, color: '#8b949e', fontSize: '14px', lineHeight: '1.5' }}>
+                      {mod.descripcion || mod.description || "Escenario práctico de ciberseguridad."}
+                    </p>
+                  </div>
+
+                  <div style={{ width: '220px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', borderLeft: '1px solid #30363d', paddingLeft: '20px' }}>
+                    <span style={{ fontSize: '13px', color: '#8b949e', marginBottom: '5px' }}>{pct}% completado</span>
+                    <ProgressBar value={pct} />
+                    <span style={{ color: isCompleted ? '#3fb950' : '#58a6ff', fontSize: '13px', fontWeight: 'bold', marginTop: '10px' }}>
+                      {isCompleted ? "Repasar" : isStarted ? "Continuar" : "Iniciar"} 
+                    </span>
+                  </div>
+                </article>
+              );
+            })
+          )}
         </div>
       </section>
-
-      <section className="dash-bottom-grid">
-        <article className="dash-note">
-          <span>
-            <PlayCircle size={20} />
-          </span>
-
-          <div>
-            <strong>Practica con propósito</strong>
-            <p>Lee el objetivo, ejecuta el laboratorio y registra evidencia clara.</p>
-          </div>
-        </article>
-
-        <article className="dash-note">
-          <span>
-            <Trophy size={20} />
-          </span>
-
-          <div>
-            <strong>Completa checkpoints</strong>
-            <p>Los checkpoints muestran tu avance real en cada escenario.</p>
-          </div>
-        </article>
-
-        <article className="dash-note">
-          <span>
-            <Lightbulb size={20} />
-          </span>
-
-          <div>
-            <strong>Revisa el feedback</strong>
-            <p>La retroalimentación te ayuda a reforzar conceptos antes de avanzar.</p>
-          </div>
-        </article>
-      </section>
+      
     </div>
   );
 }

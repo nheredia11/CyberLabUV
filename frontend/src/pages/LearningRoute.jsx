@@ -5,46 +5,23 @@ import {
   getModuleById,
   getModuleFeedback,
   getModules,
-  submitCheckpoint,
   submitSurvey,
 } from "../lib/api";
 import Practice from "./Practice";
-import SimulatedTerminal from "../components/SimulatedTerminal"; // Asegúrate de tener esta ruta correcta
+import SimulatedTerminal from "../components/SimulatedTerminal";
 
 const PHASES = [
-  {
-    id: "theory",
-    label: "Teoría",
-    description: "Lectura guiada del módulo",
-  },
-  {
-    id: "simulation",
-    label: "Simulación (Navegador)",
-    description: "Terminal segura sin Docker",
-  },
-  {
-    id: "practice",
-    label: "Práctica Real (Docker)",
-    description: "Escenario local controlado",
-  },
-  {
-    id: "checkpoints",
-    label: "Checkpoints",
-    description: "Registro de evidencias",
-  },
-  {
-    id: "survey",
-    label: "Evaluación",
-    description: "Encuesta y cierre",
-  },
+  { id: "theory", label: "Teoría", description: "Lectura guiada del módulo" },
+  { id: "simulation", label: "Simulación", description: "Terminal segura sin Docker" },
+  { id: "practice", label: "Práctica Real", description: "Escenario local controlado" },
+  { id: "checkpoints", label: "Checkpoints", description: "Registro de evidencias" },
+  { id: "survey", label: "Evaluación", description: "Encuesta y cierre" },
 ];
 
 function resolveUserId(user) {
   const storedUser = localStorage.getItem("cyberlab_user");
-
   if (user?.id) return user.id;
   if (user?.email) return user.email;
-
   if (storedUser) {
     try {
       const parsed = JSON.parse(storedUser);
@@ -53,7 +30,6 @@ function resolveUserId(user) {
       return "demo-student";
     }
   }
-
   return "demo-student";
 }
 
@@ -70,52 +46,18 @@ function getModuleIdFromProps(props) {
 
 function normalizeModule(moduleData) {
   if (!moduleData) return null;
-
   return {
     ...moduleData,
     id: moduleData.id || moduleData.module_id || "S02",
-    title:
-      moduleData.titulo ||
-      moduleData.title ||
-      moduleData.name ||
-      "Módulo CyberLab",
-    description:
-      moduleData.descripcion ||
-      moduleData.description ||
-      "Módulo académico de ciberseguridad.",
-    objectives:
-      moduleData.objetivos ||
-      moduleData.objectives ||
-      [],
-    checkpoints:
-      moduleData.checkpoints ||
-      moduleData.checkpoint_list ||
-      [],
-    survey:
-      moduleData.survey ||
-      moduleData.questions ||
-      [],
-    theory:
-      moduleData.theory_markdown ||
-      moduleData.theory ||
-      moduleData.content ||
-      "",
-    feedback:
-      moduleData.feedback ||
-      null,
-    progress:
-      moduleData.progress ||
-      null,
+    title: moduleData.titulo || moduleData.title || moduleData.name || "Módulo CyberLab",
+    description: moduleData.descripcion || moduleData.description || "Módulo académico de ciberseguridad.",
+    objectives: moduleData.objetivos || moduleData.objectives || [],
+    checkpoints: moduleData.checkpoints || moduleData.checkpoint_list || [],
+    survey: moduleData.survey || moduleData.questions || [],
+    theory: moduleData.theory_markdown || moduleData.theory || moduleData.content || "",
+    feedback: moduleData.feedback || null,
+    progress: moduleData.progress || null,
   };
-}
-
-function defaultEvidence(checkpoint, moduleId) {
-  const text =
-    checkpoint.evidencia ||
-    checkpoint.description ||
-    "Evidencia registrada durante la práctica.";
-
-  return `En el módulo ${moduleId}, se trabajó el checkpoint "${checkpoint.titulo || checkpoint.title || checkpoint.id}". Evidencia esperada: ${text}`;
 }
 
 function getQuestionDefault(question) {
@@ -127,7 +69,6 @@ function getQuestionDefault(question) {
 
 export default function LearningRoute(props) {
   const { user, onBack, onNavigate } = props;
-
   const userId = resolveUserId(user);
   const initialModuleId = getModuleIdFromProps(props);
 
@@ -138,66 +79,24 @@ export default function LearningRoute(props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [checkpointEvidence, setCheckpointEvidence] = useState({});
   const [completedCheckpoints, setCompletedCheckpoints] = useState({});
-  const [savingCheckpoint, setSavingCheckpoint] = useState("");
-  const [checkpointMessage, setCheckpointMessage] = useState("");
-
   const [surveyAnswers, setSurveyAnswers] = useState({});
   const [savingSurvey, setSavingSurvey] = useState(false);
   const [surveyMessage, setSurveyMessage] = useState("");
-
   const [feedback, setFeedback] = useState(null);
 
-  // 👉 AQUÍ ES EL LUGAR CORRECTO PARA NUESTROS ESTADOS Y FUNCIONES NUEVAS
+  // Estados para manejo de Checkpoints y Evidencias
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkpointMessage, setCheckpointMessage] = useState({ text: "", type: "" });
 
-  const handleSubmitCheckpoints = async () => {
-    setIsSubmitting(true);
-    try {
-      // Usamos el token de desarrollo configurado en tu backend
-      const response = await fetch("http://localhost:8000/api/progress/checkpoints", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-cyberlab-token": "dev-token-secret" // Revisa tu .env del backend si cambiaste esto
-        },
-        body: JSON.stringify({
-          module_id: moduleData?.id || "S01",
-          student_id: userId, // Modificado para usar el userId real que ya resuelves arriba
-          answers: answers
-        })
-      });
-
-      if (response.ok) {
-        alert("✅ ¡Evidencias evaluadas y registradas correctamente!");
-        setActivePhase("survey"); // Salto automático a la encuesta
-      } else {
-        alert("❌ Error de conexión al guardar las evidencias.");
-      }
-    } catch (error) {
-      console.error("Error al enviar checkpoints:", error);
-      alert("❌ El backend no responde. Verifica que Docker y FastAPI estén corriendo.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  // 👉 FIN DE LA NUEVA SECCIÓN
-
-  const moduleData = useMemo(() => {
-    return normalizeModule(moduleRaw);
-  }, [moduleRaw]);
+  const moduleData = useMemo(() => normalizeModule(moduleRaw), [moduleRaw]);
 
   const theoryHtml = useMemo(() => {
     const source = moduleData?.theory || "";
-
     if (!source.trim()) {
-      return DOMPurify.sanitize(
-        "<p>No hay contenido teórico disponible para este módulo.</p>"
-      );
+      return DOMPurify.sanitize("<p>No hay contenido teórico disponible para este módulo.</p>");
     }
-
     return DOMPurify.sanitize(marked.parse(source));
   }, [moduleData]);
 
@@ -214,7 +113,6 @@ export default function LearningRoute(props) {
         setModules([]);
       }
     }
-
     loadCatalog();
   }, []);
 
@@ -223,36 +121,17 @@ export default function LearningRoute(props) {
       try {
         setLoading(true);
         setError("");
-
         const data = await getModuleById(moduleId, userId);
         setModuleRaw(data);
 
         const normalized = normalizeModule(data);
-
-        const initialEvidence = {};
         const initialCompleted = {};
 
         (normalized?.checkpoints || []).forEach((checkpoint) => {
-          const savedEvidence =
-            checkpoint.evidence ||
-            checkpoint.submission?.evidence ||
-            checkpoint.progress?.evidence ||
-            "";
-
-          const isCompleted =
-            checkpoint.completed ||
-            checkpoint.status === "completed" ||
-            checkpoint.submission?.status === "completed" ||
-            checkpoint.progress?.completed ||
-            false;
-
-          initialEvidence[checkpoint.id] =
-            savedEvidence || defaultEvidence(checkpoint, normalized.id);
-
+          const isCompleted = checkpoint.completed || checkpoint.status === "completed" || false;
           initialCompleted[checkpoint.id] = Boolean(isCompleted);
         });
 
-        setCheckpointEvidence(initialEvidence);
         setCompletedCheckpoints(initialCompleted);
 
         const initialSurvey = {};
@@ -273,47 +152,60 @@ export default function LearningRoute(props) {
         setLoading(false);
       }
     }
-
     loadModule();
   }, [moduleId, userId]);
 
   function handleBack() {
-    if (onBack) {
-      onBack();
-      return;
-    }
-
-    if (onNavigate) {
-      onNavigate("dashboard");
-    }
+    if (onBack) return onBack();
+    if (onNavigate) onNavigate("dashboard");
   }
 
   function handleModuleChange(event) {
     const nextModuleId = event.target.value;
     setModuleId(nextModuleId);
     setActivePhase("theory");
-    setCheckpointMessage("");
+    setCheckpointMessage({ text: "", type: "" });
     setSurveyMessage("");
-
-    if (props.onModuleChange) {
-      props.onModuleChange(nextModuleId);
-    }
+    if (props.onModuleChange) props.onModuleChange(nextModuleId);
   }
+
+  const handleSubmitCheckpoints = async () => {
+    setIsSubmitting(true);
+    setCheckpointMessage({ text: "Guardando evidencias...", type: "info" });
+    try {
+      const response = await fetch("http://localhost:8000/api/progress/checkpoints", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-cyberlab-token": "dev-token-secret"
+        },
+        body: JSON.stringify({
+          module_id: moduleData?.id || "S01",
+          student_id: userId,
+          answers: answers
+        })
+      });
+
+      if (response.ok) {
+        setCheckpointMessage({ text: "¡Evidencias evaluadas y registradas correctamente!", type: "success" });
+        setTimeout(() => setActivePhase("survey"), 1500); // Salto automático tras 1.5s
+      } else {
+        setCheckpointMessage({ text: "Error de conexión al guardar las evidencias.", type: "error" });
+      }
+    } catch (error) {
+      console.error("Error al enviar checkpoints:", error);
+      setCheckpointMessage({ text: "El backend no responde. Verifica que Docker y FastAPI estén corriendo.", type: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   async function handleSubmitSurvey() {
     try {
       setSavingSurvey(true);
       setSurveyMessage("");
-
-      const numericValues = Object.values(surveyAnswers)
-        .map((value) => Number(value))
-        .filter((value) => !Number.isNaN(value));
-
-      const rating =
-        numericValues.length > 0
-          ? numericValues.reduce((total, value) => total + value, 0) /
-            numericValues.length
-          : null;
+      const numericValues = Object.values(surveyAnswers).map(Number).filter((val) => !Number.isNaN(val));
+      const rating = numericValues.length > 0 ? numericValues.reduce((tot, val) => tot + val, 0) / numericValues.length : null;
 
       await submitSurvey(moduleData.id, {
         user_id: userId,
@@ -323,10 +215,9 @@ export default function LearningRoute(props) {
         rating,
         comments: surveyAnswers.comments || "",
       });
-
-      setSurveyMessage("Encuesta guardada correctamente.");
+      setSurveyMessage("✅ Encuesta guardada correctamente. ¡Gracias por tu retroalimentación!");
     } catch (saveError) {
-      setSurveyMessage(`No se pudo guardar la encuesta: ${saveError.message}`);
+      setSurveyMessage(`❌ No se pudo guardar la encuesta: ${saveError.message}`);
     } finally {
       setSavingSurvey(false);
     }
@@ -334,10 +225,7 @@ export default function LearningRoute(props) {
 
   const completedCount = Object.values(completedCheckpoints).filter(Boolean).length;
   const totalCheckpoints = moduleData?.checkpoints?.length || 0;
-  const progressPercent =
-    totalCheckpoints > 0
-      ? Math.round((completedCount / totalCheckpoints) * 100)
-      : 0;
+  const progressPercent = totalCheckpoints > 0 ? Math.round((completedCount / totalCheckpoints) * 100) : 0;
 
   if (loading && !moduleData) {
     return (
@@ -358,9 +246,7 @@ export default function LearningRoute(props) {
           <span className="eyebrow">Error</span>
           <h2>No se pudo cargar el módulo</h2>
           <p>{error}</p>
-          <button type="button" onClick={handleBack}>
-            Volver
-          </button>
+          <button type="button" onClick={handleBack}>Volver</button>
         </section>
       </main>
     );
@@ -371,11 +257,8 @@ export default function LearningRoute(props) {
       <section className="learning-route-hero">
         <div>
           <span className="eyebrow">Ruta de aprendizaje</span>
-          <h1>
-            {moduleData?.id} · {moduleData?.title}
-          </h1>
+          <h1>{moduleData?.id} · {moduleData?.title}</h1>
           <p>{moduleData?.description}</p>
-
           <div className="learning-route-actions">
             <button type="button" onClick={handleBack} className="secondary-button">
               Volver al tablero
@@ -387,10 +270,7 @@ export default function LearningRoute(props) {
           <label>
             Módulo
             <select value={moduleId} onChange={handleModuleChange}>
-              {modules.length === 0 && (
-                <option value={moduleId}>{moduleId}</option>
-              )}
-
+              {modules.length === 0 && <option value={moduleId}>{moduleId}</option>}
               {modules.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.id} · {item.titulo || item.title}
@@ -398,23 +278,9 @@ export default function LearningRoute(props) {
               ))}
             </select>
           </label>
-
-          <div className="summary-kpi">
-            <span>Estudiante</span>
-            <strong>{userId}</strong>
-          </div>
-
-          <div className="summary-kpi">
-            <span>Checkpoints</span>
-            <strong>
-              {completedCount}/{totalCheckpoints}
-            </strong>
-          </div>
-
-          <div className="summary-kpi">
-            <span>Progreso</span>
-            <strong>{progressPercent}%</strong>
-          </div>
+          <div className="summary-kpi"><span>Estudiante</span><strong>{userId}</strong></div>
+          <div className="summary-kpi"><span>Checkpoints</span><strong>{completedCount}/{totalCheckpoints}</strong></div>
+          <div className="summary-kpi"><span>Progreso</span><strong>{progressPercent}%</strong></div>
         </aside>
       </section>
 
@@ -443,8 +309,6 @@ export default function LearningRoute(props) {
               "Práctica Real" para interactuar con los contenedores.
             </p>
           </div>
-
-          {/* Renderizado de la terminal simulada */}
           <SimulatedTerminal scenarioId={moduleData?.id} />
         </section>
       )}
@@ -454,16 +318,9 @@ export default function LearningRoute(props) {
           <div className="section-heading">
             <span className="eyebrow">Teoría del módulo</span>
             <h2>{moduleData?.title || "Contenido teórico"}</h2>
-            <p>
-              Este contenido se carga desde el archivo <code>theory.md</code> del
-              módulo seleccionado.
-            </p>
+            <p>Lee detenidamente los fundamentos antes de proceder a la práctica.</p>
           </div>
-
-          <article
-            className="markdown-content"
-            dangerouslySetInnerHTML={{ __html: theoryHtml }}
-          />
+          <article className="markdown-content" dangerouslySetInnerHTML={{ __html: theoryHtml }} />
         </section>
       )}
 
@@ -472,17 +329,9 @@ export default function LearningRoute(props) {
           <div className="section-heading">
             <span className="eyebrow">Laboratorio local</span>
             <h2>Práctica guiada</h2>
-            <p>
-              Inicia el escenario, revisa el laboratorio y ejecuta comandos
-              permitidos desde la terminal guiada.
-            </p>
+            <p>Inicia el escenario, revisa el laboratorio y ejecuta comandos permitidos desde la terminal guiada.</p>
           </div>
-
-          <Practice
-            user={user}
-            moduleId={moduleData?.id}
-            moduleData={moduleData}
-          />
+          <Practice user={user} moduleId={moduleData?.id} moduleData={moduleData} />
         </section>
       )}
 
@@ -491,10 +340,7 @@ export default function LearningRoute(props) {
           <div className="section-heading">
             <span className="eyebrow">Validación de Conocimiento</span>
             <h2>Registro de Evidencias (Flags)</h2>
-            <p>
-              Ingresa los resultados obtenidos durante tu Práctica Real. 
-              Esto nos ayudará a evaluar cualitativamente tu progreso en el módulo.
-            </p>
+            <p>Ingresa los resultados obtenidos durante tu Práctica Real. Esto nos ayudará a evaluar cualitativamente tu progreso.</p>
           </div>
           
           <div className="checkpoints-form" style={{ background: '#161b22', padding: '24px', borderRadius: '8px', marginTop: '20px', border: '1px solid #30363d' }}>
@@ -509,7 +355,7 @@ export default function LearningRoute(props) {
                     placeholder="Escribe tu respuesta o flag aquí..." 
                     value={answers[cp.id || idx] || ""}
                     onChange={(e) => setAnswers({...answers, [cp.id || idx]: e.target.value})}
-                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #30363d', background: '#0d1117', color: '#58a6ff', fontFamily: 'monospace' }} 
+                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #30363d', background: '#0d1117', color: '#58a6ff', fontFamily: 'monospace', outline: 'none' }} 
                   />
                 </div>
               ))
@@ -517,22 +363,19 @@ export default function LearningRoute(props) {
               <p style={{ color: '#8b949e' }}>No hay checkpoints configurados para este escenario.</p>
             )}
             
+            {checkpointMessage.text && (
+              <div style={{ marginBottom: '15px', padding: '10px', borderRadius: '4px', background: checkpointMessage.type === 'error' ? '#f8514920' : '#2ea04320', color: checkpointMessage.type === 'error' ? '#ff7b72' : '#3fb950', border: `1px solid ${checkpointMessage.type === 'error' ? '#f85149' : '#2ea043'}` }}>
+                {checkpointMessage.text}
+              </div>
+            )}
+
             <button 
               type="button"
               disabled={isSubmitting}
-              style={{ 
-                padding: '12px 24px', 
-                background: isSubmitting ? '#555' : '#238636', 
-                color: '#ffffff', 
-                fontWeight: 'bold', 
-                border: 'none', 
-                borderRadius: '6px', 
-                cursor: isSubmitting ? 'not-allowed' : 'pointer', 
-                marginTop: '10px' 
-              }}
+              style={{ padding: '12px 24px', background: isSubmitting ? '#555' : '#238636', color: '#ffffff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: isSubmitting ? 'not-allowed' : 'pointer', transition: '0.2s' }}
               onClick={handleSubmitCheckpoints}
             >
-              {isSubmitting ? "Enviando..." : "Enviar Evidencias"}
+              {isSubmitting ? "Enviando evidencias..." : "Enviar Evidencias"}
             </button>
           </div>
         </section>
@@ -543,31 +386,26 @@ export default function LearningRoute(props) {
           <div className="section-heading">
             <span className="eyebrow">Cierre y retroalimentación</span>
             <h2>Encuesta del módulo</h2>
-            <p>
-              Esta encuesta permite recoger percepción de claridad, utilidad y
-              aspectos por reforzar.
-            </p>
+            <p>Evalúa la claridad y utilidad del escenario para ayudarnos a mejorar la calidad de los laboratorios.</p>
           </div>
 
-          {surveyMessage && <div className="inline-alert">{surveyMessage}</div>}
+          {surveyMessage && (
+            <div style={{ marginBottom: '20px', padding: '12px', borderRadius: '6px', background: surveyMessage.includes('❌') ? '#f8514920' : '#2ea04320', color: surveyMessage.includes('❌') ? '#ff7b72' : '#3fb950', border: `1px solid ${surveyMessage.includes('❌') ? '#f85149' : '#2ea043'}` }}>
+              {surveyMessage}
+            </div>
+          )}
 
-          <div className="survey-grid">
+          <div className="survey-grid" style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
             {(moduleData?.survey || []).map((question) => {
               const type = question.tipo || question.type;
-
               return (
-                <label key={question.id} className="survey-question">
-                  <span>{question.pregunta || question.question}</span>
-
+                <div key={question.id} style={{ background: '#161b22', padding: '15px', borderRadius: '6px', border: '1px solid #30363d' }}>
+                  <span style={{ display: 'block', marginBottom: '10px', color: '#c9d1d9', fontWeight: 'bold' }}>{question.pregunta || question.question}</span>
                   {type === "likert_1_5" ? (
                     <select
                       value={surveyAnswers[question.id] || "5"}
-                      onChange={(event) =>
-                        setSurveyAnswers((current) => ({
-                          ...current,
-                          [question.id]: event.target.value,
-                        }))
-                      }
+                      onChange={(e) => setSurveyAnswers({ ...surveyAnswers, [question.id]: e.target.value })}
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', background: '#0d1117', color: '#c9d1d9', border: '1px solid #30363d' }}
                     >
                       <option value="5">5 · Totalmente de acuerdo</option>
                       <option value="4">4 · De acuerdo</option>
@@ -578,46 +416,44 @@ export default function LearningRoute(props) {
                   ) : (
                     <textarea
                       value={surveyAnswers[question.id] || ""}
-                      onChange={(event) =>
-                        setSurveyAnswers((current) => ({
-                          ...current,
-                          [question.id]: event.target.value,
-                        }))
-                      }
+                      onChange={(e) => setSurveyAnswers({ ...surveyAnswers, [question.id]: e.target.value })}
                       placeholder="Escribe tu respuesta..."
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', background: '#0d1117', color: '#c9d1d9', border: '1px solid #30363d', minHeight: '60px' }}
                     />
                   )}
-                </label>
+                </div>
               );
             })}
-
-            <label className="survey-question">
-              <span>Comentario general</span>
+            
+            <div style={{ background: '#161b22', padding: '15px', borderRadius: '6px', border: '1px solid #30363d' }}>
+              <span style={{ display: 'block', marginBottom: '10px', color: '#c9d1d9', fontWeight: 'bold' }}>Comentario general</span>
               <textarea
                 value={surveyAnswers.comments || ""}
-                onChange={(event) =>
-                  setSurveyAnswers((current) => ({
-                    ...current,
-                    comments: event.target.value,
-                  }))
-                }
+                onChange={(e) => setSurveyAnswers({ ...surveyAnswers, comments: e.target.value })}
                 placeholder="Describe qué fue claro, qué fue difícil o qué reforzarías."
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', background: '#0d1117', color: '#c9d1d9', border: '1px solid #30363d', minHeight: '80px' }}
               />
-            </label>
+            </div>
           </div>
 
           <button
             type="button"
             onClick={handleSubmitSurvey}
             disabled={savingSurvey}
+            style={{ padding: '12px 24px', background: savingSurvey ? '#555' : '#1f6feb', color: '#ffffff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: savingSurvey ? 'not-allowed' : 'pointer' }}
           >
             {savingSurvey ? "Guardando encuesta..." : "Guardar encuesta"}
           </button>
 
-          {feedback && (
-            <article className="feedback-box">
-              <h3>Retroalimentación disponible</h3>
-              <pre>{JSON.stringify(feedback, null, 2)}</pre>
+          {/* Renderizado limpio de Retroalimentación del Docente */}
+          {feedback && Object.keys(feedback).length > 0 && (
+            <article style={{ marginTop: '30px', padding: '20px', background: '#23863615', borderLeft: '4px solid #2ea043', borderRadius: '4px' }}>
+              <h3 style={{ color: '#3fb950', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                👨‍🏫 Retroalimentación del Docente
+              </h3>
+              <p style={{ color: '#c9d1d9', lineHeight: '1.6', margin: 0 }}>
+                {feedback.message || feedback.feedback || "Revisa tus evidencias en el panel de resultados."}
+              </p>
             </article>
           )}
         </section>
