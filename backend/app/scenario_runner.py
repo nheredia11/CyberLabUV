@@ -171,15 +171,32 @@ def run_scenario_action(scenario_id: str, action: str) -> tuple[bool, int | None
 
 # --- AÑADIR AL FINAL DE scenario_runner.py ---
 
-# LISTA BLANCA DE COMANDOS (Hardening - Previene Command Injection)
+# LISTA BLANCA DE COMANDOS COMPLETA (Hardening - Previene Command Injection)
 SAFE_COMMANDS = {
     "S01": [
         "nmap -sV recon-lab",
-        "curl http://recon-lab:5000/health"
+        "curl -I http://recon-lab:5000"
     ],
     "S02": [
         "hydra -l estudiante -P wordlists/demo.txt localhost http-post-form",
         "curl -i http://127.0.0.1:8081/health"
+    ],
+    "S03": [
+        # Escenario OWASP: Pruebas de inyección SQL y XSS permitidas por consola
+        "curl 'http://web-owasp-lab/search?q=test'",
+        "curl 'http://web-owasp-lab/search?q=1%20OR%201=1'",
+        "curl 'http://web-owasp-lab/file?name=readme.txt'"
+    ],
+    "S04": [
+        # Escenario Servicios (SSH/FTP)
+        "nmap -p 21,22 auth-services-lab",
+        "hydra -l admin -P wordlists/fast.txt ssh://auth-services-lab",
+        "ftp -n auth-services-lab"
+    ],
+    "S05": [
+        # Escenario MITM (Man in the Middle)
+        "arpspoof -i eth0 -t victima_ip puerta_enlace_ip",
+        "tcpdump -i eth0 -n -A 'tcp port 80'"
     ]
 }
 

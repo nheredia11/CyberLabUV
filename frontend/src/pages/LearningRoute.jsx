@@ -9,6 +9,7 @@ import {
   submitSurvey,
 } from "../lib/api";
 import Practice from "./Practice";
+import SimulatedTerminal from "../components/SimulatedTerminal"; // Asegúrate de tener esta ruta correcta
 
 const PHASES = [
   {
@@ -17,8 +18,13 @@ const PHASES = [
     description: "Lectura guiada del módulo",
   },
   {
+    id: "simulation",
+    label: "Simulación (Navegador)",
+    description: "Terminal segura sin Docker",
+  },
+  {
     id: "practice",
-    label: "Práctica",
+    label: "Práctica Real (Docker)",
     description: "Escenario local controlado",
   },
   {
@@ -116,7 +122,6 @@ function getQuestionDefault(question) {
   if (question.tipo === "likert_1_5" || question.type === "likert_1_5") {
     return "5";
   }
-
   return "";
 }
 
@@ -143,6 +148,42 @@ export default function LearningRoute(props) {
   const [surveyMessage, setSurveyMessage] = useState("");
 
   const [feedback, setFeedback] = useState(null);
+
+  // 👉 AQUÍ ES EL LUGAR CORRECTO PARA NUESTROS ESTADOS Y FUNCIONES NUEVAS
+  const [answers, setAnswers] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmitCheckpoints = async () => {
+    setIsSubmitting(true);
+    try {
+      // Usamos el token de desarrollo configurado en tu backend
+      const response = await fetch("http://localhost:8000/api/progress/checkpoints", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-cyberlab-token": "dev-token-secret" // Revisa tu .env del backend si cambiaste esto
+        },
+        body: JSON.stringify({
+          module_id: moduleData?.id || "S01",
+          student_id: userId, // Modificado para usar el userId real que ya resuelves arriba
+          answers: answers
+        })
+      });
+
+      if (response.ok) {
+        alert("✅ ¡Evidencias evaluadas y registradas correctamente!");
+        setActivePhase("survey"); // Salto automático a la encuesta
+      } else {
+        alert("❌ Error de conexión al guardar las evidencias.");
+      }
+    } catch (error) {
+      console.error("Error al enviar checkpoints:", error);
+      alert("❌ El backend no responde. Verifica que Docker y FastAPI estén corriendo.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  // 👉 FIN DE LA NUEVA SECCIÓN
 
   const moduleData = useMemo(() => {
     return normalizeModule(moduleRaw);
@@ -256,43 +297,6 @@ export default function LearningRoute(props) {
 
     if (props.onModuleChange) {
       props.onModuleChange(nextModuleId);
-    }
-  }
-
-  async function handleSubmitCheckpoint(checkpoint) {
-    const evidence = checkpointEvidence[checkpoint.id]?.trim();
-
-    if (!evidence) {
-      setCheckpointMessage("Escribe una evidencia antes de guardar el checkpoint.");
-      return;
-    }
-
-    try {
-      setSavingCheckpoint(checkpoint.id);
-      setCheckpointMessage("");
-
-      await submitCheckpoint(moduleData.id, {
-        user_id: userId,
-        student_id: userId,
-        module_id: moduleData.id,
-        checkpoint_id: checkpoint.id,
-        evidence,
-        status: "completed",
-        completed: true,
-      });
-
-      setCompletedCheckpoints((current) => ({
-        ...current,
-        [checkpoint.id]: true,
-      }));
-
-      setCheckpointMessage("Checkpoint guardado correctamente.");
-    } catch (saveError) {
-      setCheckpointMessage(
-        `No se pudo guardar el checkpoint: ${saveError.message}`
-      );
-    } finally {
-      setSavingCheckpoint("");
     }
   }
 
@@ -428,6 +432,23 @@ export default function LearningRoute(props) {
         ))}
       </nav>
 
+      {activePhase === "simulation" && (
+        <section className="learning-panel">
+          <div className="section-heading">
+            <span className="eyebrow">Simulación Ligera WebAssembly / Mock</span>
+            <h2>Entorno de pruebas en navegador</h2>
+            <p>
+              Practica los comandos requeridos directamente en tu navegador sin consumir 
+              recursos de tu computadora. Cuando domines la sintaxis, pasa a la 
+              "Práctica Real" para interactuar con los contenedores.
+            </p>
+          </div>
+
+          {/* Renderizado de la terminal simulada */}
+          <SimulatedTerminal scenarioId={moduleData?.id} />
+        </section>
+      )}
+
       {activePhase === "theory" && (
         <section className="learning-panel">
           <div className="section-heading">
@@ -468,69 +489,51 @@ export default function LearningRoute(props) {
       {activePhase === "checkpoints" && (
         <section className="learning-panel">
           <div className="section-heading">
-            <span className="eyebrow">Evidencias</span>
-            <h2>Checkpoints del módulo</h2>
+            <span className="eyebrow">Validación de Conocimiento</span>
+            <h2>Registro de Evidencias (Flags)</h2>
             <p>
-              Registra la evidencia de la práctica para alimentar el progreso y
-              la retroalimentación del estudiante.
+              Ingresa los resultados obtenidos durante tu Práctica Real. 
+              Esto nos ayudará a evaluar cualitativamente tu progreso en el módulo.
             </p>
           </div>
-
-          {checkpointMessage && (
-            <div className="inline-alert">{checkpointMessage}</div>
-          )}
-
-          <div className="checkpoint-grid">
-            {(moduleData?.checkpoints || []).map((checkpoint) => (
-              <article
-                className={
-                  completedCheckpoints[checkpoint.id]
-                    ? "checkpoint-card completed"
-                    : "checkpoint-card"
-                }
-                key={checkpoint.id}
-              >
-                <div className="checkpoint-card__head">
-                  <span>{checkpoint.id}</span>
-                  <strong>{checkpoint.titulo || checkpoint.title}</strong>
+          
+          <div className="checkpoints-form" style={{ background: '#161b22', padding: '24px', borderRadius: '8px', marginTop: '20px', border: '1px solid #30363d' }}>
+            {moduleData?.checkpoints ? (
+              moduleData.checkpoints.map((cp, idx) => (
+                <div key={idx} style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', color: '#c9d1d9', fontWeight: 'bold', marginBottom: '8px' }}>
+                    🚩 Pregunta {idx + 1}: {cp.question || cp.pregunta || `Checkpoint ${idx + 1}`}
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Escribe tu respuesta o flag aquí..." 
+                    value={answers[cp.id || idx] || ""}
+                    onChange={(e) => setAnswers({...answers, [cp.id || idx]: e.target.value})}
+                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #30363d', background: '#0d1117', color: '#58a6ff', fontFamily: 'monospace' }} 
+                  />
                 </div>
-
-                <p>
-                  {checkpoint.evidencia ||
-                    checkpoint.description ||
-                    "Describe la evidencia obtenida."}
-                </p>
-
-                {completedCheckpoints[checkpoint.id] && (
-                  <div className="checkpoint-saved">
-                    Checkpoint guardado para este estudiante.
-                  </div>
-                )}
-
-                <textarea
-                  value={checkpointEvidence[checkpoint.id] || ""}
-                  onChange={(event) =>
-                    setCheckpointEvidence((current) => ({
-                      ...current,
-                      [checkpoint.id]: event.target.value,
-                    }))
-                  }
-                  placeholder="Describe la evidencia obtenida en la práctica..."
-                />
-
-                <button
-                  type="button"
-                  onClick={() => handleSubmitCheckpoint(checkpoint)}
-                  disabled={savingCheckpoint === checkpoint.id}
-                >
-                  {savingCheckpoint === checkpoint.id
-                    ? "Guardando..."
-                    : completedCheckpoints[checkpoint.id]
-                      ? "Actualizar evidencia"
-                      : "Guardar checkpoint"}
-                </button>
-              </article>
-            ))}
+              ))
+            ) : (
+              <p style={{ color: '#8b949e' }}>No hay checkpoints configurados para este escenario.</p>
+            )}
+            
+            <button 
+              type="button"
+              disabled={isSubmitting}
+              style={{ 
+                padding: '12px 24px', 
+                background: isSubmitting ? '#555' : '#238636', 
+                color: '#ffffff', 
+                fontWeight: 'bold', 
+                border: 'none', 
+                borderRadius: '6px', 
+                cursor: isSubmitting ? 'not-allowed' : 'pointer', 
+                marginTop: '10px' 
+              }}
+              onClick={handleSubmitCheckpoints}
+            >
+              {isSubmitting ? "Enviando..." : "Enviar Evidencias"}
+            </button>
           </div>
         </section>
       )}
