@@ -3,36 +3,38 @@ name: cyberlab_auth_http
 services:
   auth-lab:
     build:
-      context: ../common/edu_lab
+      context: ./app
       dockerfile: Dockerfile
-    container_name: cyberlab_auth_http_lab
+    container_name: cyberlab_auth_lab
     environment:
       SCENARIO_ID: S02
-      LAB_MODE: auth_http
-      APP_TITLE: CyberLab - Autenticación HTTP débil
-      DEMO_USER: estudiante
-      DEMO_PASSWORD: laboratorio123
-      FLASK_ENV: production
+      LAB_MODE: auth
+      APP_TITLE: CyberLab - Autenticación HTTP
     ports:
-      - "127.0.0.1:${AUTH_HTTP_PORT:-8081}:5000"
+      - "127.0.0.1:${AUTH_PORT:-8081}:5000"
     networks:
-      - auth_lab_net
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - auth_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
     restart: unless-stopped
 
-  student-shell:
+  auth-attacker:
     image: alpine:3.21
-    container_name: cyberlab_auth_http_shell
-    command: ["sh", "-c", "sleep infinity"]
+    container_name: cyberlab_auth_attacker
+    command: ["sh", "-c", "apk add --no-cache hydra curl >/dev/null 2>&1; sleep infinity"]
     tty: true
     stdin_open: true
     networks:
-      - auth_lab_net
+      - auth_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
 
 networks:
-  auth_lab_net:
+  auth_net:
     driver: bridge
