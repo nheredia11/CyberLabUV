@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import Practice from "./Practice";
 import SimulatedTerminal from "../components/SimulatedTerminal";
+import { submitCheckpoint } from '../lib/api.js';
 
 const PHASES = [
   { id: "theory", label: "Teoría", description: "Lectura guiada del módulo" },
@@ -172,29 +173,16 @@ export default function LearningRoute(props) {
   const handleSubmitCheckpoints = async () => {
     setIsSubmitting(true);
     setCheckpointMessage({ text: "Guardando evidencias...", type: "info" });
+    
     try {
-      const response = await fetch("http://localhost:8000/api/progress/checkpoints", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-cyberlab-token": "dev-token-secret"
-        },
-        body: JSON.stringify({
-          module_id: moduleData?.id || "S01",
-          student_id: userId,
-          answers: answers
-        })
-      });
-
-      if (response.ok) {
-        setCheckpointMessage({ text: "¡Evidencias evaluadas y registradas correctamente!", type: "success" });
-        setTimeout(() => setActivePhase("survey"), 1500); // Salto automático tras 1.5s
-      } else {
-        setCheckpointMessage({ text: "Error de conexión al guardar las evidencias.", type: "error" });
-      }
+      // Llamada real al backend para persistir las evidencias en SQLite
+      await submitCheckpoint(moduleData.id, user?.id, answers);
+      
+      setCheckpointMessage({ text: "¡Evidencias registradas! Pendientes de revisión del docente.", type: "success" });
+      setTimeout(() => setActivePhase("survey"), 2000); 
     } catch (error) {
       console.error("Error al enviar checkpoints:", error);
-      setCheckpointMessage({ text: "El backend no responde. Verifica que Docker y FastAPI estén corriendo.", type: "error" });
+      setCheckpointMessage({ text: "Error de conexión al guardar las evidencias.", type: "error" });
     } finally {
       setIsSubmitting(false);
     }
