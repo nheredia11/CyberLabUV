@@ -55,8 +55,8 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // NUEVO: Estado para guardar el rol seleccionado antes del login
-  const [selectedRole, setSelectedRole] = useState('student'); // 'student' o 'teacher'
+  // Estado para guardar el rol temporal (Solo aplica para el entorno de desarrollo)
+  const [selectedRole, setSelectedRole] = useState('student');
 
   const googleReady = isGoogleConfigured();
   const isDark = theme === 'dark';
@@ -73,8 +73,9 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
 
         const result = await api.loginWithGoogle(response.credential);
         
-        // Inyectamos el rol seleccionado al objeto de usuario
-        const userData = { ...result.user, role: selectedRole };
+        // CORRECCIÓN PRIORIDAD 1: Tomamos estrictamente el usuario y rol verificados por el backend.
+        // Se elimina la inyección manual ({ ...result.user, role: selectedRole })
+        const userData = result.user;
 
         localStorage.setItem('cyberlab_user', JSON.stringify(userData));
         localStorage.setItem('cyberlab_token', result.token);
@@ -91,7 +92,7 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
         setLoading(false);
       }
     };
-  }, [onLogin, selectedRole]); // Añadimos selectedRole a las dependencias
+  }, [onLogin]); // Ya no depende de selectedRole, blindando el acceso.
 
   useEffect(() => {
     let cancelled = false;
@@ -143,13 +144,13 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
     return () => {
       cancelled = true;
     };
-  }, [googleReady, isDark, selectedRole]); // Re-renderizar si cambia el rol
+  }, [googleReady, isDark]);
 
   function toggleTheme() {
     setTheme?.(isDark ? 'light' : 'dark');
   }
 
-  // NUEVO: Función para saltarse Google durante el desarrollo
+  // Función exclusiva para saltarse Google durante el desarrollo local
   function handleDevLogin() {
     const mockUser = {
       id: selectedRole === 'teacher' ? 'profesor-local' : 'student-local-01',
@@ -223,28 +224,7 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
           </span>
 
           <h2>Iniciar sesión</h2>
-          <p>Selecciona tu rol e ingresa con tu cuenta institucional.</p>
-        </div>
-
-        {/* NUEVO: Selector de Roles */}
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', width: '100%', maxWidth: '360px', margin: '0 auto 20px auto' }}>
-          <button 
-            type="button"
-            onClick={() => setSelectedRole('student')}
-            style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'student' ? '#2ea043' : '#30363d'}`, borderRadius: '8px', background: selectedRole === 'student' ? '#2ea04315' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
-          >
-            <User size={24} color={selectedRole === 'student' ? '#2ea043' : '#8b949e'} />
-            <strong style={{ fontSize: '14px' }}>Estudiante</strong>
-          </button>
-          
-          <button 
-            type="button"
-            onClick={() => setSelectedRole('teacher')}
-            style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'teacher' ? '#1f6feb' : '#30363d'}`, borderRadius: '8px', background: selectedRole === 'teacher' ? '#1f6feb15' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
-          >
-            <Users size={24} color={selectedRole === 'teacher' ? '#1f6feb' : '#8b949e'} />
-            <strong style={{ fontSize: '14px' }}>Docente</strong>
-          </button>
+          <p>Ingresa con tu cuenta institucional para continuar.</p>
         </div>
 
         <div className="login-google-area">
@@ -253,9 +233,31 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
           ) : (
             <div className="google-pending-card modern" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ textAlign: 'center', marginBottom: '15px' }}>
-                <strong>Modo Desarrollo Local</strong>
-                <p>Google Auth no configurado. Usa el ingreso temporal para avanzar.</p>
+                <strong style={{ color: '#e3b341' }}>Modo Desarrollo Local ⚠️</strong>
+                <p>Google Auth no configurado. Selector de rol inseguro habilitado solo para pruebas.</p>
               </div>
+
+              {/* Selector de Roles movido adentro del entorno inseguro */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', width: '100%', maxWidth: '360px', margin: '0 auto 20px auto' }}>
+                <button 
+                  type="button"
+                  onClick={() => setSelectedRole('student')}
+                  style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'student' ? '#2ea043' : '#30363d'}`, borderRadius: '8px', background: selectedRole === 'student' ? '#2ea04315' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
+                >
+                  <User size={24} color={selectedRole === 'student' ? '#2ea043' : '#8b949e'} />
+                  <strong style={{ fontSize: '14px' }}>Estudiante</strong>
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={() => setSelectedRole('teacher')}
+                  style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'teacher' ? '#1f6feb' : '#30363d'}`, borderRadius: '8px', background: selectedRole === 'teacher' ? '#1f6feb15' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
+                >
+                  <Users size={24} color={selectedRole === 'teacher' ? '#1f6feb' : '#8b949e'} />
+                  <strong style={{ fontSize: '14px' }}>Docente</strong>
+                </button>
+              </div>
+
               <button 
                 onClick={handleDevLogin}
                 style={{ width: '100%', padding: '12px', background: selectedRole === 'teacher' ? '#1f6feb' : '#2ea043', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}

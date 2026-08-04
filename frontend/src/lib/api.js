@@ -281,17 +281,28 @@ export function scenarioAction(payload) {
   return runScenarioAction(payload);
 }
 
-export function runTerminalCommand(payload) {
-  const userId = normalizeUserId(payload.user_id || payload.student_id);
+export async function runTerminalCommand({ user_id, scenario_id, command }) {
+  const token = getStoredToken();
+  const response = await fetch(
+    `${API_URL}/api/scenarios/${encodeURIComponent(scenario_id)}/command`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-cyberlab-token": token,
+      },
+      body: JSON.stringify({ user_id, scenario_id, command }),
+    }
+  );
 
-  return request("/api/scenarios/terminal", {
-    method: "POST",
-    body: JSON.stringify({
-      user_id: userId,
-      scenario_id: payload.scenario_id || payload.module_id,
-      command: payload.command,
-    }),
-  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.detail || "No fue posible ejecutar el comando en el escenario."
+    );
+  }
+
+  return response.json();
 }
 
 export function terminalCommand(payload) {

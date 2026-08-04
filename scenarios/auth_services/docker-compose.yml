@@ -28,6 +28,15 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # NUEVO: Contenedor atacante para ejecutar hydra, ftp, nmap (Prioridad 2)
+  auth_services-attacker:
+    image: alpine:3.21
+    container_name: auth_services-attacker
+    command: tail -f /dev/null
+    networks:
+      - auth_services_net
+    init: true
+
 networks:
   auth_services_net:
     driver: bridge
