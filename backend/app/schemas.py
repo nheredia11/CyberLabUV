@@ -5,104 +5,134 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from pydantic import AliasChoices
+
+# --- Modelos del Catálogo y Contenido ---
+class ModuleProgressInfo(BaseModel):
+    percent: int = 0
+    completed_checkpoints: int = 0
+    total_checkpoints: int = 0
+    survey_completed: bool = False
+
 
 class CatalogItem(BaseModel):
     id: str
-    titulo: str
-    tipo: str
-    estado: str
-    nivel: str
-    frameworks: list[str] = Field(default_factory=list)
-    duracion_estimada: str | None = None
-    ruta: str
+    titulo: str = Field(validation_alias=AliasChoices("title", "titulo"))
+    descripcion: str = Field(validation_alias=AliasChoices("description", "descripcion"))
+    # Hacemos estos campos opcionales con un valor por defecto
+    duration_minutes: int = 0
+    difficulty: str = "Básico"
+    tags: list[str] = Field(default_factory=list)
+    progress: ModuleProgressInfo | None = None
 
 
-class Checkpoint(BaseModel):
+class CheckpointDef(BaseModel):
     id: str
-    titulo: str
-    tipo: Literal["confirmacion", "texto"]
-    evidencia: str
+    type: Literal["flag", "question"]
+    question: str
+    hint: str | None = None
 
 
-class SurveyQuestion(BaseModel):
+class SectionDef(BaseModel):
     id: str
-    pregunta: str
-    tipo: str
+    title: str
+    content: str
 
 
-class ModuleDetail(BaseModel):
-    id: str
-    titulo: str
-    orden: int
-    descripcion: str
-    objetivos: list[str] = Field(default_factory=list)
-    encuesta_obligatoria: bool = True
-    checkpoints_obligatorios: bool = True
-    comando_inicio: str | None = None
-    theory_markdown: str
-    checkpoints: list[Checkpoint]
-    survey: list[SurveyQuestion]
-    catalog: CatalogItem | None = None
+class ModuleDetail(CatalogItem):
+    teoria: list[SectionDef] = Field(default_factory=list, alias="theory")
+    practica: list[SectionDef] = Field(default_factory=list, alias="practice")
+    checkpoints: list[CheckpointDef] = Field(default_factory=list)
 
 
-class CheckpointSubmission(BaseModel):
-    student_id: str = Field(min_length=2)
-    module_id: str = Field(min_length=2)
-    checkpoint_id: str = Field(min_length=2)
-    evidence: str = Field(default="", max_length=3000)
-    completed: bool = True
+# --- Modelos de Autenticación ---
+class GoogleLoginRequest(BaseModel):
+    credential: str
 
 
-class SurveySubmission(BaseModel):
-    student_id: str = Field(min_length=2)
-    module_id: str = Field(min_length=2)
-    answers: dict[str, Any] = Field(default_factory=dict)
-
-
-class ScenarioActionResponse(BaseModel):
-    scenario_id: str
-    action: str
-    allowed: bool
-    returncode: int | None = None
-    stdout: str = ""
-    stderr: str = ""
-    message: str
-
-
+# --- Modelos de Dashboard Estudiante ---
 class StudentDashboard(BaseModel):
     student_id: str
     modules_total: int
     modules_started: int
     checkpoints_completed: int
-    checkpoints_total: int
-    progress_percent: float
-    updated_at: datetime
+    general_percent: float
+    modules: list[CatalogItem] = Field(default_factory=list)
 
 
-class TeacherAnalytics(BaseModel):
-    modules_total: int
-    students_total: int
+class StudentModuleProgress(BaseModel):
+    module_id: str
     checkpoints_completed: int
-    checkpoints_total: int
-    average_progress_percent: float
-    updated_at: datetime
+    total_checkpoints: int
+    progress_percent: float
+    is_completed: bool
+    survey_completed: bool
+    answers: dict[str, str] = Field(default_factory=dict)
 
+
+# --- Modelos de Eventos de Escenarios ---
+class ScenarioActionResponse(BaseModel):
+    scenario_id: str
+    action: str
+    allowed: bool
+    returncode: int | None
+    stdout: str
+    stderr: str
+    message: str
+
+
+# --- Modelos de Encuesta ---
+class SurveySubmission(BaseModel):
+    student_id: str
+    module_id: str
+    rating: int = Field(ge=1, le=5)
+    clarity: int = Field(ge=1, le=5)
+    difficulty: int = Field(ge=1, le=5)
+    comments: str | None = None
+
+
+# --- NUEVOS MODELOS (PRIORIDAD 2 y 5) ---
+class CheckpointPayload(BaseModel):
+    module_id: str
+    student_id: str
+    answers: dict[str, str]
+
+
+class FeedbackPayload(BaseModel):
+    student_id: str
+    module_id: str
+    feedback: str
+
+
+class CheckpointSubmission(BaseModel):
+    user_id: str
+    student_id: str
+    module_id: str
+    checkpoint_id: str
+    evidence: str
+    status: str = "pending_review"
+    feedback: str = ""
+
+# --- MODELO FALTANTE RESTAURADO ---
 class CheckpointProgressRecord(BaseModel):
     student_id: str
     module_id: str
     checkpoint_id: str
     evidence: str
-    completed: bool
+    status: str
     updated_at: datetime
 
 
-class StudentModuleProgress(BaseModel):
-    student_id: str
+# --- Modelos de Analíticas para Docentes ---
+class TeacherModuleStat(BaseModel):
     module_id: str
-    checkpoints_completed: int
-    checkpoints_total: int
-    progress_percent: float
-    checkpoints: list[CheckpointProgressRecord]
-    
-class GoogleLoginRequest(BaseModel):
-    credential: str
+    active_students: int
+    completion_rate: float
+    avg_score: float | None = None
+
+
+class TeacherAnalytics(BaseModel):
+    total_students: int
+    active_modules: int
+    overall_completion: float
+    modules: list[TeacherModuleStat] = Field(default_factory=list)
