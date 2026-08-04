@@ -28,7 +28,7 @@ services:
     volumes:
       - ../common/wordlists:/wordlists:ro
     networks:
-      - auth_http_net
+      - auth_net
     init: true
 
 networks:
