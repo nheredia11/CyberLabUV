@@ -18,19 +18,20 @@ class ModuleProgressInfo(BaseModel):
 class CatalogItem(BaseModel):
     id: str
     titulo: str = Field(validation_alias=AliasChoices("title", "titulo"))
-    descripcion: str = Field(validation_alias=AliasChoices("description", "descripcion"))
-    # Hacemos estos campos opcionales con un valor por defecto
-    duration_minutes: int = 0
-    difficulty: str = "Básico"
+    descripcion: str = Field(default="", validation_alias=AliasChoices("description", "descripcion"))
+    ruta: str = Field(default="", validation_alias=AliasChoices("ruta", "path"))
+    orden: int = Field(default=0, validation_alias=AliasChoices("orden", "order"))
+    duration_minutes: int = Field(default=60)
+    difficulty: str = Field(default="Intermedio")
     tags: list[str] = Field(default_factory=list)
     progress: ModuleProgressInfo | None = None
 
 
 class CheckpointDef(BaseModel):
     id: str
-    type: Literal["flag", "question"]
-    question: str
-    hint: str | None = None
+    type: str = Field(default="flag", validation_alias=AliasChoices("type", "tipo"))
+    question: str = Field(default="", validation_alias=AliasChoices("question", "pregunta", "titulo", "title"))
+    hint: str | None = Field(default=None, validation_alias=AliasChoices("hint", "pista", "descripcion", "description"))
 
 
 class SectionDef(BaseModel):

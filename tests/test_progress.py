@@ -59,5 +59,5 @@ def test_storage_save_and_dashboard():
     dashboard = get_student_dashboard("estudiante-test")
     
     assert dashboard is not None
-    assert hasattr(dashboard, "progress_percent")  # Corregido: Se llama progress_percent
-    assert dashboard.progress_percent >= 0         # Corregido
+    assert hasattr(dashboard, "general_percent")  # Corregido: Coincide con StudentDashboard
+    assert dashboard.general_percent >= 0         # Corregido: Coincide con StudentDashboard
