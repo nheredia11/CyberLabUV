@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     - CYBERLAB_DB / DATABASE_PATH
     - GOOGLE_CLIENT_ID / VITE_GOOGLE_CLIENT_ID
     - GOOGLE_ALLOWED_DOMAINS como texto separado por comas
+    - TEACHER_EMAILS como texto separado por comas (Fuente de verdad de roles)
     """
 
     model_config = SettingsConfigDict(
@@ -67,6 +68,12 @@ class Settings(BaseSettings):
         alias="GOOGLE_ALLOWED_DOMAINS",
     )
 
+    # NUEVO: Campo para leer los correos autorizados como docentes
+    teacher_emails_raw: str = Field(
+        default="",
+        alias="TEACHER_EMAILS",
+    )
+
     @property
     def cors_origins(self) -> list[str]:
         raw_value = self.cors_origins_raw.strip()
@@ -90,7 +97,6 @@ class Settings(BaseSettings):
         Importante: no devolver el string crudo, porque si se hace set(string)
         se obtienen caracteres individuales: c, o, r, r, e...
         """
-
         raw_value = self.google_allowed_domains_raw.strip()
 
         if not raw_value:
@@ -116,6 +122,24 @@ class Settings(BaseSettings):
     @property
     def google_allowed_domain_list(self) -> list[str]:
         return self.google_allowed_domains
+
+    # NUEVO: Propiedad para obtener los correos de docentes como lista limpia
+    @property
+    def teacher_emails(self) -> list[str]:
+        """Correos autorizados como docentes."""
+        raw_value = self.teacher_emails_raw.strip()
+        
+        if not raw_value:
+            return []
+            
+        if raw_value.startswith("["):
+            try:
+                values = json.loads(raw_value)
+                return [str(item).strip().lower() for item in values if str(item).strip()]
+            except json.JSONDecodeError:
+                pass
+                
+        return [item.strip().lower() for item in raw_value.split(",") if item.strip()]
 
     @property
     def root_dir(self) -> Path:

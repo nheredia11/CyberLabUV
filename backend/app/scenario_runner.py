@@ -16,6 +16,7 @@ class ScenarioDefinition:
     compose_file: str
     description: str
     local_url: str
+    attacker_service: str  # NUEVO: Nombre exacto del servicio atacante en el docker-compose
 
 
 SCENARIOS: dict[str, ScenarioDefinition] = {
@@ -25,6 +26,7 @@ SCENARIOS: dict[str, ScenarioDefinition] = {
         compose_file="scenarios/recon/docker-compose.yml",
         description="Reconocimiento de red y servicios",
         local_url="http://127.0.0.1:8083",
+        attacker_service="recon-attacker",
     ),
     "S02": ScenarioDefinition(
         module_id="S02",
@@ -32,6 +34,7 @@ SCENARIOS: dict[str, ScenarioDefinition] = {
         compose_file="scenarios/auth_http/docker-compose.yml",
         description="Autenticación HTTP débil en entorno controlado",
         local_url="http://127.0.0.1:8081",
+        attacker_service="auth-attacker", # Corregido: Era auth-attacker en el docker-compose
     ),
     "S03": ScenarioDefinition(
         module_id="S03",
@@ -39,6 +42,7 @@ SCENARIOS: dict[str, ScenarioDefinition] = {
         compose_file="scenarios/web_owasp/docker-compose.yml",
         description="Aplicación web vulnerable para prácticas OWASP",
         local_url="http://127.0.0.1:8084",
+        attacker_service="owasp-attacker", # Corregido: Era owasp-attacker en el docker-compose
     ),
     "S04": ScenarioDefinition(
         module_id="S04",
@@ -46,6 +50,7 @@ SCENARIOS: dict[str, ScenarioDefinition] = {
         compose_file="scenarios/auth_services/docker-compose.yml",
         description="Autenticación simulada sobre servicios SSH y FTP",
         local_url="http://127.0.0.1:8085",
+        attacker_service="auth_services-attacker",
     ),
     "S05": ScenarioDefinition(
         module_id="S05",
@@ -53,6 +58,7 @@ SCENARIOS: dict[str, ScenarioDefinition] = {
         compose_file="scenarios/mitm_lab/docker-compose.yml",
         description="MITM simulado en tráfico no cifrado",
         local_url="http://127.0.0.1:8086",
+        attacker_service="mitm-attacker",
     ),
 }
 
@@ -169,8 +175,6 @@ def run_scenario_action(scenario_id: str, action: str) -> tuple[bool, int | None
     return True, returncode, stdout, stderr, f"La acción {normalized_action} terminó con código {returncode}."
 
 
-# --- AÑADIR AL FINAL DE scenario_runner.py ---
-
 # LISTA BLANCA DE COMANDOS COMPLETA (Hardening - Previene Command Injection)
 SAFE_COMMANDS = {
     "S01": [
@@ -182,19 +186,16 @@ SAFE_COMMANDS = {
         "curl -i http://127.0.0.1:8081/health"
     ],
     "S03": [
-        # Escenario OWASP: Pruebas de inyección SQL y XSS permitidas por consola
         "curl 'http://web-owasp-lab/search?q=test'",
         "curl 'http://web-owasp-lab/search?q=1%20OR%201=1'",
         "curl 'http://web-owasp-lab/file?name=readme.txt'"
     ],
     "S04": [
-        # Escenario Servicios (SSH/FTP)
         "nmap -p 21,22 auth-services-lab",
         "hydra -l admin -P wordlists/fast.txt ssh://auth-services-lab",
         "ftp -n auth-services-lab"
     ],
     "S05": [
-        # Escenario MITM (Man in the Middle)
         "arpspoof -i eth0 -t victima_ip puerta_enlace_ip",
         "tcpdump -i eth0 -n -A 'tcp port 80'"
     ]
@@ -205,11 +206,9 @@ def run_terminal_command(scenario_id: str, command: str) -> tuple[bool, int | No
     normalized_id = scenario_id.upper()
     clean_command = command.strip()
 
-    # 1. Validación estricta de seguridad
     if normalized_id not in SAFE_COMMANDS or clean_command not in SAFE_COMMANDS.get(normalized_id, []):
         return False, None, "", "", f"Error de seguridad: El comando '{clean_command}' no está permitido en este escenario."
 
-    # 2. Obtener configuración del escenario
     scenario = SCENARIOS.get(normalized_id)
     if not scenario:
         return False, None, "", "", "Escenario no configurado."
@@ -217,14 +216,12 @@ def run_terminal_command(scenario_id: str, command: str) -> tuple[bool, int | No
     compose_path = settings.root_dir / scenario.compose_file
     base_command = _compose_command(compose_path)
     
-    # 3. Construir el comando para ejecutar DENTRO del contenedor atacante
-    # Asumimos que la máquina atacante siempre se llama {slug}-attacker (ej: recon-attacker)
-    attacker_service = f"{scenario.slug}-attacker"
+    # CORRECCIÓN PRIORIDAD 2: Usamos el atributo explícito de la configuración
+    attacker_service = scenario.attacker_service
     
     # docker compose -f <file> exec -T <servicio> sh -c "<comando>"
     exec_cmd = base_command + ["exec", "-T", attacker_service, "sh", "-c", clean_command]
 
-    # 4. Ejecutar y retornar resultados
     returncode, stdout, stderr = _run_command(exec_cmd, cwd=settings.root_dir)
 
     if returncode == 0:

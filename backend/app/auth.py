@@ -32,11 +32,15 @@ def verify_google_token(credential: str) -> dict:
     user_id = hashlib.sha1(email.encode()).hexdigest()[:12]
     avatar = "".join(p[0] for p in name.split()[:2]).upper() or "UV"
 
+    # CORRECCIÓN PRIORIDAD 1: El rol ya no se decide en el frontend.
+    # El backend verifica si el email autenticado está en la lista de profesores permitidos (.env)
+    role = "teacher" if email in settings.teacher_emails else "student"
+
     return {
         "id": user_id,
         "email": email,
         "name": name,
         "avatar": avatar,
         "picture": picture,
-        "role": "student",
+        "role": role,
     }
