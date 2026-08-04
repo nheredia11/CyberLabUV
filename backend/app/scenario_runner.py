@@ -192,7 +192,7 @@ SAFE_COMMANDS = {
     ],
     "S04": [
         "nmap -p 21,22 auth-services-lab",
-        "hydra -l admin -P wordlists/fast.txt ssh://auth-services-lab",
+        "hydra -l admin -P /wordlists/fast.txt ssh://auth-services-lab",
         "ftp -n auth-services-lab"
     ],
     "S05": [

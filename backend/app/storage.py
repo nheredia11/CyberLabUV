@@ -73,27 +73,61 @@ def init_db() -> None:
 
 
 def save_checkpoint(submission: CheckpointSubmission) -> None:
-    with get_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO checkpoint_progress
+    is_completed = 1 if submission.status == "completed" else 0
+    
+    with get_connection() as conn:  # Corregido: get_connection en lugar de get_db_connection
+        cursor = conn.cursor()
+        
+        cursor.execute("PRAGMA table_info(checkpoint_progress)")
+        columns = [row["name"] for row in cursor.fetchall()]
+        
+        if "status" in columns and "feedback" in columns:
+            cursor.execute(
+                """
+                INSERT INTO checkpoint_progress 
+                (student_id, module_id, checkpoint_id, evidence, completed, status, feedback, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(student_id, module_id, checkpoint_id) 
+                DO UPDATE SET 
+                    evidence = excluded.evidence,
+                    completed = excluded.completed,
+                    status = excluded.status,
+                    feedback = excluded.feedback,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    submission.student_id,
+                    submission.module_id,
+                    submission.checkpoint_id,
+                    submission.evidence,
+                    is_completed,
+                    submission.status,
+                    submission.feedback,
+                    utc_now_iso(),
+                ),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO checkpoint_progress 
                 (student_id, module_id, checkpoint_id, evidence, completed, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(student_id, module_id, checkpoint_id)
-            DO UPDATE SET
-                evidence=excluded.evidence,
-                completed=excluded.completed,
-                updated_at=excluded.updated_at
-            """,
-            (
-                submission.student_id,
-                submission.module_id.upper(),
-                submission.checkpoint_id,
-                submission.evidence,
-                1 if submission.completed else 0,
-                utc_now_iso(),
-            ),
-        )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(student_id, module_id, checkpoint_id) 
+                DO UPDATE SET 
+                    evidence = excluded.evidence,
+                    completed = excluded.completed,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    submission.student_id,
+                    submission.module_id,
+                    submission.checkpoint_id,
+                    submission.evidence,
+                    is_completed,
+                    utc_now_iso(),
+                ),
+            )
+        conn.commit()
 
 
 def save_survey(submission: SurveySubmission) -> None:
@@ -147,9 +181,8 @@ def get_student_dashboard(student_id: str) -> StudentDashboard:
         modules_total=len(modules),
         modules_started=len(started_modules),
         checkpoints_completed=completed,
-        checkpoints_total=checkpoints_total,
-        progress_percent=progress,
-        updated_at=datetime.now(timezone.utc),
+        general_percent=progress,
+        modules=modules,
     )
 
 
