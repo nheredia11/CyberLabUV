@@ -182,8 +182,8 @@ SAFE_COMMANDS = {
         "curl -I http://recon-lab:5000"
     ],
     "S02": [
-        "hydra -l estudiante -P wordlists/demo.txt localhost http-post-form",
-        "curl -i http://127.0.0.1:8081/health"
+        "hydra -l estudiante -P /wordlists/demo.txt auth-lab -s 5000 http-post-form '/login:user=^USER^&pass=^PASS^:F=incorrecto'",
+        "curl -i http://auth-lab:5000/health"
     ],
     "S03": [
         "curl 'http://web-owasp-lab/search?q=test'",
