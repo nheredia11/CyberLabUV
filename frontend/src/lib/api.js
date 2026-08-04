@@ -205,25 +205,15 @@ export function getStudentDashboard(userId) {
   });
 }
 
-export function submitCheckpoint(moduleId, payload) {
-  const body = normalizeCheckpointPayload(moduleId, payload);
-
-  return requestWithFallback([
-    {
-      path: `/api/modules/${moduleId}/checkpoints`,
-      options: {
-        method: "POST",
-        body: JSON.stringify(body),
-      },
-    },
-    {
-      path: "/api/progress/checkpoints",
-      options: {
-        method: "POST",
-        body: JSON.stringify(body),
-      },
-    },
-  ]);
+export async function submitCheckpoint(moduleId, studentId, answers) {
+  return request(`/api/students/${encodeURIComponent(studentId)}/modules/${encodeURIComponent(moduleId)}/checkpoints`, {
+    method: 'POST',
+    body: JSON.stringify({
+      module_id: moduleId,
+      student_id: studentId,
+      answers: answers
+    }),
+  });
 }
 
 export function submitSurvey(moduleId, payload) {
@@ -247,34 +237,12 @@ export function submitSurvey(moduleId, payload) {
   ]);
 }
 
-export function runScenarioAction(payload) {
-  const userId = normalizeUserId(payload.user_id || payload.student_id);
-  const scenarioId = payload.scenario_id || payload.module_id;
-  const action = payload.action;
-
-  const originalBody = {
-    user_id: userId,
-    scenario_id: scenarioId,
-    action,
-  };
-
-  const localAction = action === "reset" ? "restart" : action;
-
-  return requestWithFallback([
-    {
-      path: "/api/scenarios/action",
-      options: {
-        method: "POST",
-        body: JSON.stringify(originalBody),
-      },
-    },
-    {
-      path: `/api/scenarios/${scenarioId}/${localAction}`,
-      options: {
-        method: "POST",
-      },
-    },
-  ]);
+export async function runScenarioAction({ user_id, scenario_id, action }) {
+  // Ajuste de ruta para que coincida con main.py
+  return request(`/api/scenarios/${encodeURIComponent(scenario_id)}/${encodeURIComponent(action)}`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id, scenario_id, action }),
+  });
 }
 
 export function scenarioAction(payload) {
@@ -282,27 +250,11 @@ export function scenarioAction(payload) {
 }
 
 export async function runTerminalCommand({ user_id, scenario_id, command }) {
-  const token = getStoredToken();
-  const response = await fetch(
-    `${API_URL}/api/scenarios/${encodeURIComponent(scenario_id)}/command`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-cyberlab-token": token,
-      },
-      body: JSON.stringify({ user_id, scenario_id, command }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.detail || "No fue posible ejecutar el comando en el escenario."
-    );
-  }
-
-  return response.json();
+  // Usamos el wrapper 'request' estandarizado del archivo
+  return request(`/api/scenarios/${encodeURIComponent(scenario_id)}/command`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id, scenario_id, command }),
+  });
 }
 
 export function terminalCommand(payload) {

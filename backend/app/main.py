@@ -19,6 +19,8 @@ from .schemas import (
     StudentModuleProgress,
     SurveySubmission,
     TeacherAnalytics,
+    CheckpointPayload,
+    CheckpointSubmission,
 )
 from .storage import (
     get_student_dashboard,
@@ -26,30 +28,18 @@ from .storage import (
     get_teacher_analytics,
     init_db,
     save_survey,
+    save_checkpoint,
 )
 
 settings = get_settings()
 
-# Diccionario de sesiones activas en memoria
-ACTIVE_SESSIONS: dict[str, dict] = {
-    "dev-teacher-token": {
-        "id": "profesor-local",
-        "email": "profesor@correounivalle.edu.co",
-        "role": "teacher",
-    },
-    "dev-student-token": {
-        "id": "estudiante-local",
-        "email": "estudiante@correounivalle.edu.co",
-        "role": "student",
-    },
-}
-
+# PRIORIDAD 3: Diccionario de sesiones activas en memoria (Inicia vacío en producción)
+ACTIVE_SESSIONS: dict[str, dict] = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     yield
-
 
 app = FastAPI(
     title="CyberLab API",
@@ -72,13 +62,26 @@ def get_current_user(x_cyberlab_token: str = Header(default="")) -> dict:
     if x_cyberlab_token in ACTIVE_SESSIONS:
         return ACTIVE_SESSIONS[x_cyberlab_token]
 
-    # Permitir token de desarrollo genérico solo en entorno de desarrollo local
-    if x_cyberlab_token == settings.dev_token and settings.app_env == "development":
-        return {
-            "id": "dev-user",
-            "email": "dev@correounivalle.edu.co",
-            "role": "student",
-        }
+    # PRIORIDAD 3: Puerta temporal estricta solo para desarrollo/testing local
+    if settings.app_env == "development":
+        if x_cyberlab_token == settings.dev_token:
+            return {
+                "id": "dev-user",
+                "email": "dev@correounivalle.edu.co",
+                "role": "student",
+            }
+        if x_cyberlab_token == "dev-teacher-token":
+            return {
+                "id": "profesor-local",
+                "email": "profesor@correounivalle.edu.co",
+                "role": "teacher",
+            }
+        if x_cyberlab_token == "dev-student-token":
+            return {
+                "id": "estudiante-local",
+                "email": "estudiante@correounivalle.edu.co",
+                "role": "student",
+            }
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -135,6 +138,28 @@ def submit_survey(submission: SurveySubmission) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Módulo no encontrado.")
     save_survey(submission)
     return {"status": "ok", "message": "Encuesta registrada."}
+
+
+# PRIORIDAD 2: Endpoint para registrar los checkpoints persistidos en SQLite
+@app.post(
+    "/api/students/{student_id}/modules/{module_id}/checkpoints",
+    dependencies=[Depends(get_current_user)],
+)
+def submit_checkpoint_endpoint(student_id: str, module_id: str, payload: CheckpointPayload) -> dict[str, str]:
+    # payload.answers debe ser un dict {"checkpoint_id": "evidencia"}
+    for cp_id, evidence in payload.answers.items():
+        submission = CheckpointSubmission(
+            user_id=student_id,
+            student_id=student_id,
+            module_id=module_id,
+            checkpoint_id=cp_id,
+            evidence=evidence,
+            status="pending_review",
+            feedback=""
+        )
+        save_checkpoint(submission)
+        
+    return {"status": "success", "message": "Evidencias guardadas en SQLite"}
 
 
 class TerminalCommandRequest(BaseModel):
@@ -233,3 +258,30 @@ def student_module_progress(
         return get_student_module_progress(student_id, module_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+# PRIORIDAD 7: Implementación del endpoint adaptativo de feedback faltante
+@app.get(
+    "/api/modules/{module_id}/feedback",
+    dependencies=[Depends(get_current_user)],
+)
+def get_module_feedback(module_id: str, student_id: str) -> dict[str, str]:
+    # Traemos el progreso real de la BD
+    progress = get_student_module_progress(student_id, module_id)
+    
+    if not progress or progress.progress_percent == 0:
+        return {
+            "level": "Inicial", 
+            "message": "Inicia la práctica y guarda tus primeros checkpoints para recibir orientación."
+        }
+    
+    if progress.progress_percent >= 100:
+        return {
+            "level": "Autónomo", 
+            "message": "¡Excelente! Has dominado el escenario por completo y validado todos tus hallazgos."
+        }
+        
+    return {
+        "level": "En consolidación",
+        "message": f"Vas por buen camino. Has completado {progress.checkpoints_completed} checkpoint(s). Continúa extrayendo evidencia de la terminal."
+    }
