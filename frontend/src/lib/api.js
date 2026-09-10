@@ -205,15 +205,22 @@ export function getStudentDashboard(userId) {
   });
 }
 
-export async function submitCheckpoint(moduleId, studentId, answers) {
-  return request(`/api/students/${encodeURIComponent(studentId)}/modules/${encodeURIComponent(moduleId)}/checkpoints`, {
-    method: 'POST',
+export async function submitCheckpoint(studentId, moduleId, checkpointId, evidence, status = "done") {
+  const response = await fetch(`/api/students/${studentId}/modules/${moduleId}/checkpoints`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CyberLab-Token": localStorage.getItem("cyberlab_token") || "",
+    },
     body: JSON.stringify({
-      module_id: moduleId,
       student_id: studentId,
-      answers: answers
+      checkpoint_id: checkpointId,
+      evidence: evidence,
+      status: status,
     }),
   });
+  if (!response.ok) throw new Error("Error registrando el checkpoint");
+  return await response.json();
 }
 
 export function submitSurvey(moduleId, payload) {

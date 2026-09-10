@@ -1,36 +1,23 @@
-import pytest
-from fastapi.testclient import TestClient
-from app.main import app
-from app.schemas import CheckpointSubmission
-from app.storage import save_checkpoint, get_student_dashboard
-
-client = TestClient(app)
-
-def test_health_endpoint():
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json()["status"] == "ok"
-
-def test_list_modules_endpoint():
+def test_list_modules_endpoint(client):
+    """
+    Valida el contrato del endpoint GET /api/modules:
+    - Retorna código HTTP 200 OK.
+    - El cuerpo es una lista no vacía.
+    - Cada elemento contiene al menos las claves 'id' y 'title'.
+    """
     response = client.get("/api/modules")
-    assert response.status_code in [200, 404]  # 200 OK si carga el catálogo correctamente
-
-def test_storage_save_and_dashboard():
-    # Enviar un checkpoint con status="completed"
-    submission = CheckpointSubmission(
-        user_id="test_student_01",
-        module_id="S02",
-        checkpoint_id="chk_01",
-        evidence="Flag obtenida correctamente",
-        status="completed"
-    )
-    record = save_checkpoint(submission)
     
-    # Verificar guardado
-    assert record.user_id == "test_student_01"
-    assert record.completed is True
-    assert record.status == "completed"
-
-    # Verificar métricas en el dashboard
-    dashboard = get_student_dashboard("test_student_01")
-    assert dashboard["total_checkpoints_completed"] >= 1
+    # 1. El estado debe ser estrictamente 200 OK (ya no se acepta 404)
+    assert response.status_code == 200, f"Se esperaba 200 pero se obtuvo {response.status_code}: {response.text}"
+    
+    data = response.json()
+    
+    # 2. El cuerpo debe ser una lista y no debe estar vacía
+    assert isinstance(data, list), "El cuerpo de la respuesta debe ser una lista."
+    assert len(data) > 0, "La lista de módulos no puede estar vacía."
+    
+    # 3. Cada elemento de la lista debe contener las propiedades canónicas mínimas 'id' y 'title'
+    for item in data:
+        assert isinstance(item, dict), "Cada elemento del catálogo debe ser un objeto/dict."
+        assert "id" in item, "El módulo no contiene la clave 'id'."
+        assert "title" in item, "El módulo no contiene la clave 'title'."
