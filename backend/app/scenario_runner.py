@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-import shutil
-import subprocess
+import asyncio
+import os
+import socket
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 from .config import get_settings
-from .storage import save_scenario_event
+from .database import (
+    create_practice_session,
+    get_active_session,
+    update_session_status,
+)
 
 
 @dataclass(frozen=True)
@@ -15,215 +22,232 @@ class ScenarioDefinition:
     slug: str
     compose_file: str
     description: str
-    local_url: str
-    attacker_service: str  # NUEVO: Nombre exacto del servicio atacante en el docker-compose
+    default_port: int
+    env_port_var: str          # Variable de entorno que usa el docker-compose
+    attacker_service: str      # Nombre del servicio atacante (si se necesita)
 
 
-SCENARIOS: dict[str, ScenarioDefinition] = {
+SCENARIOS: Dict[str, ScenarioDefinition] = {
     "S01": ScenarioDefinition(
         module_id="S01",
         slug="recon",
         compose_file="scenarios/recon/docker-compose.yml",
         description="Reconocimiento de red y servicios",
-        local_url="http://127.0.0.1:8083",
+        default_port=8083,
+        env_port_var="RECON_PORT",
         attacker_service="recon-attacker",
     ),
     "S02": ScenarioDefinition(
         module_id="S02",
         slug="auth_http",
         compose_file="scenarios/auth_http/docker-compose.yml",
-        description="Autenticación HTTP débil en entorno controlado",
-        local_url="http://127.0.0.1:8081",
-        attacker_service="auth-attacker", # Corregido: Era auth-attacker en el docker-compose
+        description="Autenticación HTTP débil",
+        default_port=8081,
+        env_port_var="AUTH_HTTP_PORT",
+        attacker_service="auth-attacker",
     ),
     "S03": ScenarioDefinition(
         module_id="S03",
         slug="web_owasp",
         compose_file="scenarios/web_owasp/docker-compose.yml",
-        description="Aplicación web vulnerable para prácticas OWASP",
-        local_url="http://127.0.0.1:8084",
-        attacker_service="owasp-attacker", # Corregido: Era owasp-attacker en el docker-compose
+        description="Aplicación web vulnerable OWASP",
+        default_port=8084,
+        env_port_var="OWASP_PORT",
+        attacker_service="owasp-attacker",
     ),
     "S04": ScenarioDefinition(
         module_id="S04",
         slug="auth_services",
         compose_file="scenarios/auth_services/docker-compose.yml",
-        description="Autenticación simulada sobre servicios SSH y FTP",
-        local_url="http://127.0.0.1:8085",
+        description="Autenticación SSH y FTP",
+        default_port=8085,
+        env_port_var="AUTH_SERVICES_PORT",
         attacker_service="auth_services-attacker",
     ),
     "S05": ScenarioDefinition(
         module_id="S05",
         slug="mitm_lab",
         compose_file="scenarios/mitm_lab/docker-compose.yml",
-        description="MITM simulado en tráfico no cifrado",
-        local_url="http://127.0.0.1:8086",
+        description="MITM en tráfico no cifrado",
+        default_port=8086,
+        env_port_var="MITM_PORT",
         attacker_service="mitm-attacker",
     ),
 }
 
 
-def _docker_is_available() -> bool:
-    return shutil.which("docker") is not None
+def find_free_port(start_port: int = 8100, max_tries: int = 300) -> int:
+    """Busca un puerto libre en el host."""
+    for port in range(start_port, start_port + max_tries):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                continue
+    raise RuntimeError("No se encontró un puerto libre en el rango configurado")
 
 
-def _compose_command(compose_path: Path) -> list[str]:
-    settings = get_settings()
-    env_file = settings.root_dir / ".env"
+async def _run_cmd_async(
+    cmd: list[str],
+    cwd: Path,
+    env: Optional[dict] = None,
+    timeout: int = 180,
+) -> Tuple[int, str, str]:
+    """Ejecuta un comando de forma asíncrona."""
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        cwd=str(cwd),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env=env or os.environ.copy(),
+    )
 
-    command = ["docker", "compose"]
-
-    if env_file.exists():
-        command.extend(["--env-file", str(env_file)])
-
-    command.extend(["-f", str(compose_path)])
-    return command
-
-
-def _run_command(command: list[str], cwd: Path, timeout: int = 120) -> tuple[int | None, str, str]:
     try:
-        process = subprocess.run(
-            command,
-            cwd=cwd,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=False,
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+        return (
+            process.returncode or 0,
+            stdout.decode("utf-8", errors="replace"),
+            stderr.decode("utf-8", errors="replace"),
         )
-        return process.returncode, process.stdout, process.stderr
-    except FileNotFoundError as exc:
-        return None, "", f"No se encontró el ejecutable requerido: {exc}"
-    except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
-        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
-        return None, stdout, f"Tiempo de espera agotado. {stderr}".strip()
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        return -1, "", f"Timeout después de {timeout} segundos"
 
 
-def run_scenario_action(scenario_id: str, action: str) -> tuple[bool, int | None, str, str, str]:
+async def start_scenario_session(
+    user_id: str,
+    scenario_id: str,
+    duration_minutes: int = 90,
+) -> Tuple[bool, str, dict]:
+    """
+    Inicia un escenario de forma aislada para un estudiante.
+    Retorna: (success, message, data)
+    """
     settings = get_settings()
-
-    normalized_id = scenario_id.upper()
-    normalized_action = action.lower().strip()
-
-    if normalized_action not in {"start", "stop", "restart", "status", "logs"}:
-        return False, None, "", "", f"Acción no permitida: {action}."
 
     if not settings.allow_scenario_commands:
         return (
             False,
-            None,
-            "",
-            "",
-            "La ejecución de escenarios está desactivada. Activa ALLOW_SCENARIO_COMMANDS=true en .env y reinicia el backend.",
+            "La ejecución de escenarios está desactivada. Activa ALLOW_SCENARIO_COMMANDS=true",
+            {},
         )
 
-    if not _docker_is_available():
-        return (
-            False,
-            None,
-            "",
-            "",
-            "Docker no está disponible. Verifica que Docker Desktop esté instalado y abierto.",
-        )
-
-    scenario = SCENARIOS.get(normalized_id)
-    if scenario is None:
-        return False, None, "", "", f"No existe configuración de escenario para {scenario_id}."
-
-    compose_path = settings.root_dir / scenario.compose_file
-
-    if not compose_path.exists():
-        return False, None, "", "", f"No existe el docker-compose.yml del escenario: {compose_path}"
-
-    base_command = _compose_command(compose_path)
-
-    if normalized_action == "start":
-        command = base_command + ["up", "-d", "--build"]
-    elif normalized_action == "stop":
-        command = base_command + ["down", "--remove-orphans"]
-    elif normalized_action == "status":
-        command = base_command + ["ps"]
-    elif normalized_action == "logs":
-        command = base_command + ["logs", "--tail", "120"]
-    else:
-        stop_code, stop_out, stop_err = _run_command(
-            base_command + ["down", "--remove-orphans"],
-            cwd=settings.root_dir,
-        )
-        start_code, start_out, start_err = _run_command(
-            base_command + ["up", "-d", "--build"],
-            cwd=settings.root_dir,
-        )
-
-        stdout = f"{stop_out}\n{start_out}".strip()
-        stderr = f"{stop_err}\n{start_err}".strip()
-        returncode = start_code if start_code is not None else stop_code
-
-        save_scenario_event(normalized_id, normalized_action, returncode, stdout, stderr)
-
-        if returncode == 0:
-            return True, returncode, stdout, stderr, f"Escenario {normalized_id} reiniciado correctamente. URL: {scenario.local_url}"
-
-        return True, returncode, stdout, stderr, f"El reinicio de {normalized_id} terminó con errores."
-
-    returncode, stdout, stderr = _run_command(command, cwd=settings.root_dir)
-    save_scenario_event(normalized_id, normalized_action, returncode, stdout, stderr)
-
-    if returncode == 0:
-        return True, returncode, stdout, stderr, f"Acción {normalized_action} ejecutada correctamente para {normalized_id}. URL: {scenario.local_url}"
-
-    return True, returncode, stdout, stderr, f"La acción {normalized_action} terminó con código {returncode}."
-
-
-# LISTA BLANCA DE COMANDOS COMPLETA (Hardening - Previene Command Injection)
-SAFE_COMMANDS = {
-    "S01": [
-        "nmap -sV recon-lab",
-        "curl -I http://recon-lab:5000"
-    ],
-    "S02": [
-        "hydra -l estudiante -P /wordlists/demo.txt auth-lab -s 5000 http-post-form '/login:user=^USER^&pass=^PASS^:F=incorrecto'",
-        "curl -i http://auth-lab:5000/health"
-    ],
-    "S03": [
-        "curl 'http://web-owasp-lab/search?q=test'",
-        "curl 'http://web-owasp-lab/search?q=1%20OR%201=1'",
-        "curl 'http://web-owasp-lab/file?name=readme.txt'"
-    ],
-    "S04": [
-        "nmap -p 21,22 auth-services-lab",
-        "hydra -l admin -P /wordlists/fast.txt ssh://auth-services-lab",
-        "ftp -n auth-services-lab"
-    ],
-    "S05": [
-        "arpspoof -i eth0 -t victima_ip puerta_enlace_ip",
-        "tcpdump -i eth0 -n -A 'tcp port 80'"
-    ]
-}
-
-def run_terminal_command(scenario_id: str, command: str) -> tuple[bool, int | None, str, str, str]:
-    settings = get_settings()
     normalized_id = scenario_id.upper()
-    clean_command = command.strip()
-
-    if normalized_id not in SAFE_COMMANDS or clean_command not in SAFE_COMMANDS.get(normalized_id, []):
-        return False, None, "", "", f"Error de seguridad: El comando '{clean_command}' no está permitido en este escenario."
-
     scenario = SCENARIOS.get(normalized_id)
     if not scenario:
-        return False, None, "", "", "Escenario no configurado."
+        return False, f"Escenario {scenario_id} no encontrado", {}
+
+    # Reutilizar sesión activa si existe
+    active = get_active_session(user_id, scenario.slug)
+    if active:
+        port = active["assigned_ports"].get("web", scenario.default_port)
+        return True, "Sesión activa recuperada", {
+            "session_id": active["id"],
+            "local_url": f"http://127.0.0.1:{port}",
+            "status": active["status"],
+            "docker_project_name": active["docker_project_name"],
+        }
+
+    # Crear nueva sesión
+    session_id = str(uuid.uuid4())
+    project_name = f"session_{session_id}"
+    allocated_port = find_free_port()
 
     compose_path = settings.root_dir / scenario.compose_file
-    base_command = _compose_command(compose_path)
-    
-    # CORRECCIÓN PRIORIDAD 2: Usamos el atributo explícito de la configuración
-    attacker_service = scenario.attacker_service
-    
-    # docker compose -f <file> exec -T <servicio> sh -c "<comando>"
-    exec_cmd = base_command + ["exec", "-T", attacker_service, "sh", "-c", clean_command]
+    if not compose_path.exists():
+        return False, f"No existe el archivo: {compose_path}", {}
 
-    returncode, stdout, stderr = _run_command(exec_cmd, cwd=settings.root_dir)
+    # Variables de entorno para el puerto dinámico
+    env = os.environ.copy()
+    env[scenario.env_port_var] = str(allocated_port)
+
+    cmd = [
+        "docker", "compose",
+        "-p", project_name,
+        "-f", str(compose_path),
+        "up", "-d", "--build",
+    ]
+
+    returncode, stdout, stderr = await _run_cmd_async(
+        cmd, cwd=settings.root_dir, env=env
+    )
+
+    if returncode != 0:
+        return False, f"Error al desplegar el escenario: {stderr[-600:]}", {}
+
+    # Guardar sesión en la base de datos
+    assigned_ports = {"web": allocated_port}
+    session_data = create_practice_session(
+        user_id=user_id,
+        scenario_slug=scenario.slug,
+        docker_project_name=project_name,
+        assigned_ports=assigned_ports,
+        duration_minutes=duration_minutes,
+        session_id=session_id,
+    )
+
+    return True, "Escenario desplegado correctamente", {
+        "session_id": session_id,
+        "local_url": f"http://127.0.0.1:{allocated_port}",
+        "status": "running",
+        "docker_project_name": project_name,
+        "assigned_ports": assigned_ports,
+    }
+
+
+async def stop_scenario_session(
+    user_id: str,
+    scenario_id: str,
+) -> Tuple[bool, str]:
+    """Detiene y limpia los contenedores de una sesión."""
+    settings = get_settings()
+
+    normalized_id = scenario_id.upper()
+    scenario = SCENARIOS.get(normalized_id)
+    if not scenario:
+        return False, "Escenario no válido"
+
+    active = get_active_session(user_id, scenario.slug)
+    if not active:
+        return True, "No había sesión activa para detener"
+
+    project_name = active["docker_project_name"]
+    compose_path = settings.root_dir / scenario.compose_file
+
+    cmd = [
+        "docker", "compose",
+        "-p", project_name,
+        "-f", str(compose_path),
+        "down", "--remove-orphans", "-v",
+    ]
+
+    returncode, stdout, stderr = await _run_cmd_async(
+        cmd, cwd=settings.root_dir
+    )
+
+    # Actualizamos el estado aunque falle el down (para no dejar basura en BD)
+    update_session_status(active["id"], "stopped")
 
     if returncode == 0:
-        return True, returncode, stdout, stderr, "Comando ejecutado correctamente."
-    return True, returncode, stdout, stderr, f"El comando falló con código {returncode}."
+        return True, "Sesión y contenedores detenidos correctamente"
+    
+    return False, f"Se marcó como detenida, pero hubo problemas al limpiar contenedores: {stderr[-400:]}"
+
+
+# Mantener compatibilidad con el código antiguo (si todavía se usa)
+async def run_scenario_action(scenario_id: str, action: str, user_id: str = "anonymous") -> Tuple[bool, int | None, str, str, str]:
+    """
+    Función de compatibilidad.
+    """
+    if action.lower() == "start":
+        success, message, data = await start_scenario_session(user_id, scenario_id)
+        return success, 0 if success else 1, "", "", message
+
+    if action.lower() in ("stop", "down"):
+        success, message = await stop_scenario_session(user_id, scenario_id)
+        return success, 0 if success else 1, "", "", message
+
+    return False, None, "", "", f"Acción no soportada: {action}"

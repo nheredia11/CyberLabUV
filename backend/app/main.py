@@ -22,6 +22,17 @@ from .auth import (
     create_session,
 )
 
+from pydantic import BaseModel
+from typing import Optional
+
+from .scenario_runner import start_scenario_session, stop_scenario_session
+from .database import init_db   # o como se llame tu función de inicialización
+
+import asyncio
+from contextlib import asynccontextmanager
+from .cleanup import start_cleanup_scheduler, cleanup_expired_sessions
+from .database import init_db
+
 logger = logging.getLogger("cyberlab")
 
 app = FastAPI(title="CyberLabUV API")
@@ -32,6 +43,38 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+class ScenarioActionRequest(BaseModel):
+    user_id: str
+    action: str          # "start" o "stop"
+    
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- STARTUP ---
+    init_db()
+    
+    # Limpieza inicial por si el servidor se reinició con sesiones huérfanas
+    await cleanup_expired_sessions()
+    
+    # Tarea en segundo plano cada 5 minutos
+    cleanup_task = asyncio.create_task(start_cleanup_scheduler(interval_seconds=300))
+    
+    yield
+    
+    # --- SHUTDOWN ---
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(
+    title="CyberLabUV API",
+    lifespan=lifespan
 )
 
 
@@ -121,3 +164,51 @@ async def get_teacher_analytics(
     teacher: dict[str, Any] = Depends(require_teacher_role),
 ):
   return {"status": "ok", "teacher_id": teacher["user_id"], "analytics": {}}
+
+@app.post("/api/scenarios/{scenario_id}/action")
+async def handle_scenario_action(scenario_id: str, payload: ScenarioActionRequest):
+    """
+    Inicia o detiene un escenario de forma aislada por estudiante.
+    """
+    action = payload.action.lower().strip()
+    user_id = payload.user_id
+
+    if action == "start":
+        success, message, data = await start_scenario_session(
+            user_id=user_id,
+            scenario_id=scenario_id,
+        )
+
+        if not success:
+            raise HTTPException(status_code=500, detail=message)
+
+        return {
+            "status": "success",
+            "message": message,
+            "scenario_id": scenario_id.upper(),
+            "session_id": data.get("session_id"),
+            "local_url": data.get("local_url"),
+            "docker_project_name": data.get("docker_project_name"),
+            "assigned_ports": data.get("assigned_ports"),
+        }
+
+    elif action in ("stop", "down"):
+        success, message = await stop_scenario_session(
+            user_id=user_id,
+            scenario_id=scenario_id,
+        )
+
+        if not success:
+            raise HTTPException(status_code=500, detail=message)
+
+        return {
+            "status": "success",
+            "message": message,
+            "scenario_id": scenario_id.upper(),
+        }
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Acción no soportada: {payload.action}. Usa 'start' o 'stop'."
+        )

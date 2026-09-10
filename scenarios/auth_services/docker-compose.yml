@@ -1,17 +1,12 @@
-name: cyberlab_auth_services
-
 services:
-  auth-services-lab:
+  auth_services-lab:
     build:
       context: ../common/edu_lab
       dockerfile: Dockerfile
-    container_name: cyberlab_auth_services_lab
     environment:
       SCENARIO_ID: S04
       LAB_MODE: auth_services
-      APP_TITLE: CyberLab - Autenticación SSH/FTP simulada
-      DEMO_USER: estudiante
-      DEMO_PASSWORD: laboratorio123
+      APP_TITLE: "CyberLab - Servicios de Autenticación (SSH/FTP)"
     ports:
       - "127.0.0.1:${AUTH_SERVICES_PORT:-8085}:5000"
     networks:
@@ -21,26 +16,21 @@ services:
         limits:
           cpus: '0.50'
           memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     restart: unless-stopped
 
   auth_services-attacker:
-    build:
-      context: ../common/attacker
-      dockerfile: Dockerfile
-    container_name: cyberlab_auth_services_attacker
-    environment:
-      TARGET_HOST: auth-services-lab
-    volumes:
-      - ../common/wordlists:/wordlists:ro
+    image: alpine:3.21
+    command: sh -c "apk add --no-cache nmap curl hydra openssh-client lftp && tail -f /dev/null"
     networks:
       - auth_services_net
     depends_on:
-      - auth-services-lab
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 256M
+      - auth_services-lab
     restart: unless-stopped
 
 networks:
