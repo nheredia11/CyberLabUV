@@ -1,44 +1,38 @@
-name: cyberlab_web_owasp
-
 services:
-  web-owasp-lab:
+  web_owasp-lab:
     build:
       context: ../common/edu_lab
       dockerfile: Dockerfile
-    container_name: cyberlab_web_owasp_lab
     environment:
       SCENARIO_ID: S03
       LAB_MODE: web_owasp
-      APP_TITLE: CyberLab - Inyección SQL y OWASP Top 10
+      APP_TITLE: "CyberLab - Aplicación Web Vulnerable (OWASP)"
     ports:
-      - "127.0.0.1:${WEB_OWASP_PORT:-8083}:5000"
+      - "127.0.0.1:${OWASP_PORT:-8084}:5000"
     networks:
-      - owasp_net
+      - web_owasp_net
     deploy:
       resources:
         limits:
           cpus: '0.50'
           memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     restart: unless-stopped
 
-  owasp-attacker:
-    build:
-      context: ../common/attacker
-      dockerfile: Dockerfile
-    container_name: cyberlab_web_owasp_attacker
-    environment:
-      TARGET_HOST: web-owasp-lab
+  web_owasp-attacker:
+    image: alpine:3.21
+    command: tail -f /dev/null
     networks:
-      - owasp_net
+      - web_owasp_net
     depends_on:
-      - web-owasp-lab
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 256M
+      - web_owasp-lab
     restart: unless-stopped
 
 networks:
-  owasp_net:
+  web_owasp_net:
     driver: bridge
