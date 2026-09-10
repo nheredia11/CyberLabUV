@@ -3,15 +3,15 @@ name: cyberlab_auth_http
 services:
   auth-lab:
     build:
-      context: ./app
+      context: ../common/edu_lab
       dockerfile: Dockerfile
-    container_name: cyberlab_auth_lab
+    container_name: cyberlab_auth_http_lab
     environment:
       SCENARIO_ID: S02
-      LAB_MODE: auth
-      APP_TITLE: CyberLab - Autenticación HTTP
+      LAB_MODE: auth_http
+      APP_TITLE: CyberLab - Autenticación Web Vulnerable
     ports:
-      - "127.0.0.1:${AUTH_PORT:-8081}:5000"
+      - "127.0.0.1:${AUTH_HTTP_PORT:-8082}:5000"
     networks:
       - auth_net
     deploy:
@@ -22,14 +22,24 @@ services:
     restart: unless-stopped
 
   auth-attacker:
-    image: alpine:3.21
-    container_name: auth-attacker
-    command: sh -c "apk add --no-cache nmap curl hydra >/dev/null 2>&1; sleep infinity"
+    build:
+      context: ../common/attacker
+      dockerfile: Dockerfile
+    container_name: cyberlab_auth_http_attacker
+    environment:
+      TARGET_HOST: auth-lab
     volumes:
       - ../common/wordlists:/wordlists:ro
     networks:
       - auth_net
-    init: true
+    depends_on:
+      - auth-lab
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+    restart: unless-stopped
 
 networks:
   auth_net:

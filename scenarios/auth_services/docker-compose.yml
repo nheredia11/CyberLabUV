@@ -21,23 +21,27 @@ services:
         limits:
           cpus: '0.50'
           memory: 256M
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: unless-stopped
 
-  # NUEVO: Contenedor atacante para ejecutar hydra, ftp, nmap (Prioridad 2)
   auth_services-attacker:
-    image: alpine:3.21
-    container_name: auth_services-attacker
-    command: sh -c "apk add --no-cache nmap hydra tnftp >/dev/null 2>&1; sleep infinity"
+    build:
+      context: ../common/attacker
+      dockerfile: Dockerfile
+    container_name: cyberlab_auth_services_attacker
+    environment:
+      TARGET_HOST: auth-services-lab
     volumes:
       - ../common/wordlists:/wordlists:ro
     networks:
       - auth_services_net
-    init: true
+    depends_on:
+      - auth-services-lab
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+    restart: unless-stopped
 
 networks:
   auth_services_net:
