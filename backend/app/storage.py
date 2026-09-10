@@ -75,41 +75,20 @@ def save_scenario_event(scenario_id: str, action: str, returncode: int, stdout: 
         """, (scenario_id, action, returncode, stdout, stderr, now))
         conn.commit()
 
-def save_checkpoint(submission: CheckpointSubmission) -> CheckpointProgressRecord:
-    user_id = submission.student_id or submission.user_id or "default_user"
-    is_completed_bool = submission.is_completed
-    status_str = submission.status if submission.status else ("completed" if is_completed_bool else "pending_review")
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
+def save_checkpoint(student_id: str, module_id: str, checkpoint_id: str, evidence: str, status: str) -> None:
+    is_completed = 1 if status == "done" else 0
     with get_db_connection() as conn:
-        conn.execute("""
-            INSERT INTO checkpoint_progress (user_id, module_id, checkpoint_id, status, evidence, completed, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, module_id, checkpoint_id) DO UPDATE SET
-                status=excluded.status,
-                evidence=excluded.evidence,
-                completed=excluded.completed,
-                updated_at=excluded.updated_at
-        """, (
-            user_id,
-            submission.module_id,
-            submission.checkpoint_id or "chk_01",
-            status_str,
-            submission.evidence or "",
-            1 if is_completed_bool else 0,
-            now
-        ))
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO checkpoint_progress (student_id, module_id, checkpoint_id, evidence, status, completed)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(student_id, module_id, checkpoint_id) 
+            DO UPDATE SET evidence=excluded.evidence, status=excluded.status, completed=excluded.completed;
+            """,
+            (student_id, module_id, checkpoint_id, evidence, status, is_completed),
+        )
         conn.commit()
-
-    return CheckpointProgressRecord(
-        user_id=user_id,
-        module_id=submission.module_id,
-        checkpoint_id=submission.checkpoint_id or "chk_01",
-        status=status_str,
-        evidence=submission.evidence or "",
-        completed=is_completed_bool,
-        updated_at=now
-    )
 
 def save_survey(survey: SurveySubmission) -> Dict[str, Any]:
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -141,23 +120,25 @@ def get_student_module_progress(student_id: str, module_id: str) -> StudentModul
         )
 
 def get_student_dashboard(student_id: str) -> StudentDashboard:
+    # Retorna la estructura garantizando la llave canónica progress_percent
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
-            SELECT COUNT(DISTINCT checkpoint_id) as total_completed
-            FROM checkpoint_progress
-            WHERE user_id = ? AND (completed = 1 OR status = 'completed')
-        """, (student_id,))
-        row = cursor.fetchone()
-        completed = row["total_completed"] if row else 0
-
-        return StudentDashboard(
-            user_id=student_id,
-            student_id=student_id,
-            total_checkpoints_completed=completed,
-            checkpoints_completed=completed,
-            modules_progress={}
+        cursor.execute(
+            "SELECT COUNT(DISTINCT checkpoint_id) FROM checkpoint_progress WHERE student_id = ? AND completed = 1",
+            (student_id,),
         )
+        completed_count = cursor.fetchone()[0] or 0
+
+    total_checkpoints = 10  # Valor base configurable
+    calculated_percent = round((completed_count / total_checkpoints) * 100, 2) if total_checkpoints > 0 else 0.0
+
+    return StudentDashboard(
+        student_id=student_id,
+        progress_percent=calculated_percent,
+        completed_modules_count=0,
+        total_modules_count=5,
+        modules=[],
+    )
 
 def get_teacher_analytics() -> TeacherAnalytics:
     with get_db_connection() as conn:
