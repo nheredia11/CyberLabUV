@@ -9,9 +9,9 @@ services:
     environment:
       SCENARIO_ID: S01
       LAB_MODE: recon
-      APP_TITLE: CyberLab - Reconocimiento de red y servicios
+      APP_TITLE: CyberLab - Reconocimiento Nmap/HTTP
     ports:
-      - "127.0.0.1:${RECON_PORT:-8083}:5000"
+      - "127.0.0.1:${RECON_PORT:-8081}:5000"
     networks:
       - recon_net
     deploy:
@@ -19,26 +19,25 @@ services:
         limits:
           cpus: '0.50'
           memory: 256M
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: unless-stopped
 
   recon-attacker:
-    image: alpine:3.21
+    build:
+      context: ../common/attacker
+      dockerfile: Dockerfile
     container_name: cyberlab_recon_attacker
-    command: ["sh", "-c", "apk add --no-cache nmap curl >/dev/null 2>&1; sleep infinity"]
-    tty: true
-    stdin_open: true
+    environment:
+      TARGET_HOST: recon-lab
     networks:
       - recon_net
+    depends_on:
+      - recon-lab
     deploy:
       resources:
         limits:
           cpus: '0.50'
           memory: 256M
+    restart: unless-stopped
 
 networks:
   recon_net:
