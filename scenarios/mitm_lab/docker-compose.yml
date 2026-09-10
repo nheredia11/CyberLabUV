@@ -1,15 +1,12 @@
-name: cyberlab_mitm_lab
-
 services:
   mitm-lab:
     build:
       context: ../common/edu_lab
       dockerfile: Dockerfile
-    container_name: cyberlab_mitm_lab
     environment:
       SCENARIO_ID: S05
       LAB_MODE: mitm
-      APP_TITLE: CyberLab - MITM simulado en tráfico no cifrado
+      APP_TITLE: "CyberLab - MITM simulado en tráfico no cifrado"
     ports:
       - "127.0.0.1:${MITM_PORT:-8086}:5000"
     networks:
@@ -19,27 +16,24 @@ services:
         limits:
           cpus: '0.50'
           memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     restart: unless-stopped
 
   mitm-attacker:
-    build:
-      context: ../common/attacker
-      dockerfile: Dockerfile
-    container_name: cyberlab_mitm_attacker
+    image: alpine:3.21
+    command: sh -c "apk add --no-cache nmap curl dsniff tcpdump && tail -f /dev/null"
     cap_add:
       - NET_ADMIN
       - NET_RAW
-    environment:
-      TARGET_HOST: mitm-lab
     networks:
       - mitm_net
     depends_on:
       - mitm-lab
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 256M
     restart: unless-stopped
 
 networks:
