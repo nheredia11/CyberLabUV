@@ -1,159 +1,120 @@
-import sqlite3
-import datetime
-from typing import List, Dict, Any, Optional
+from __future__ import annotations
 
-try:
-    from app.schemas import (
-        CheckpointSubmission,
-        CheckpointProgressRecord,
-        StudentDashboard,
-        TeacherAnalytics,
-        SurveySubmission,
-        StudentModuleProgress,
-    )
-except ImportError:
-    from .schemas import (
-        CheckpointSubmission,
-        CheckpointProgressRecord,
-        StudentDashboard,
-        TeacherAnalytics,
-        SurveySubmission,
-        StudentModuleProgress,
-    )
+import json
+import sqlite3
+from datetime import datetime
+from typing import Any
+from .schemas import CheckpointSubmission, SurveySubmission
 
 DB_PATH = "cyberlab.db"
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+
+def get_db():
+  conn = sqlite3.connect(DB_PATH)
+  conn.row_factory = sqlite3.Row
+  return conn
+
 
 def init_db():
-    with get_db_connection() as conn:
-        conn.execute("""
+  with get_db() as conn:
+    conn.execute("""
             CREATE TABLE IF NOT EXISTS checkpoint_progress (
-                user_id TEXT,
-                module_id TEXT,
-                checkpoint_id TEXT,
-                status TEXT,
-                evidence TEXT,
-                completed INTEGER,
-                updated_at TEXT,
-                PRIMARY KEY (user_id, module_id, checkpoint_id)
+                student_id TEXT NOT NULL,
+                module_id TEXT NOT NULL,
+                checkpoint_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                points INTEGER DEFAULT 0,
+                completed_at TEXT,
+                PRIMARY KEY (student_id, checkpoint_id)
             )
         """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS scenario_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scenario_id TEXT,
-                action TEXT,
-                returncode INTEGER,
-                stdout TEXT,
-                stderr TEXT,
-                created_at TEXT
+    conn.execute("""
+            CREATE TABLE IF NOT EXISTS survey_responses (
+                student_id TEXT NOT NULL,
+                module_id TEXT NOT NULL,
+                responses TEXT NOT NULL,
+                submitted_at TEXT NOT NULL,
+                PRIMARY KEY (student_id, module_id)
             )
         """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS surveys (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT,
-                module_id TEXT,
-                responses TEXT,
-                created_at TEXT
-            )
-        """)
-        conn.commit()
+    conn.commit()
 
-init_db()
 
-def save_scenario_event(scenario_id: str, action: str, returncode: int, stdout: str, stderr: str):
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    with get_db_connection() as conn:
-        conn.execute("""
-            INSERT INTO scenario_events (scenario_id, action, returncode, stdout, stderr, created_at)
+def save_checkpoint(submission: CheckpointSubmission) -> dict[str, Any]:
+  init_db()
+  completed_at = datetime.utcnow().isoformat()
+  module_id = getattr(submission, "module_id", "default")
+  with get_db() as conn:
+    conn.execute(
+        """
+            INSERT INTO checkpoint_progress (student_id, module_id, checkpoint_id, status, points, completed_at)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (scenario_id, action, returncode, stdout, stderr, now))
-        conn.commit()
-
-def save_checkpoint(student_id: str, module_id: str, checkpoint_id: str, evidence: str, status: str) -> None:
-    is_completed = 1 if status == "done" else 0
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO checkpoint_progress (student_id, module_id, checkpoint_id, evidence, status, completed)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(student_id, module_id, checkpoint_id) 
-            DO UPDATE SET evidence=excluded.evidence, status=excluded.status, completed=excluded.completed;
-            """,
-            (student_id, module_id, checkpoint_id, evidence, status, is_completed),
-        )
-        conn.commit()
-
-def save_survey(survey: SurveySubmission) -> Dict[str, Any]:
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    with get_db_connection() as conn:
-        conn.execute("""
-            INSERT INTO surveys (user_id, module_id, responses, created_at)
-            VALUES (?, ?, ?, ?)
-        """, (survey.user_id, survey.module_id, str(survey.responses), now))
-        conn.commit()
-    return {"status": "success", "message": "Encuesta guardada correctamente."}
-
-def get_student_module_progress(student_id: str, module_id: str) -> StudentModuleProgress:
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT checkpoint_id, status, evidence, completed, updated_at
-            FROM checkpoint_progress
-            WHERE user_id = ? AND module_id = ?
-        """, (student_id, module_id))
-        rows = cursor.fetchall()
-        checkpoints = [dict(row) for row in rows]
-        is_completed = len(checkpoints) > 0 and all(r.get("completed") == 1 for r in checkpoints)
-
-        return StudentModuleProgress(
-            user_id=student_id,
-            module_id=module_id,
-            checkpoints=checkpoints,
-            completed=is_completed
-        )
-
-def get_student_dashboard(student_id: str) -> StudentDashboard:
-    # Retorna la estructura garantizando la llave canónica progress_percent
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(DISTINCT checkpoint_id) FROM checkpoint_progress WHERE student_id = ? AND completed = 1",
-            (student_id,),
-        )
-        completed_count = cursor.fetchone()[0] or 0
-
-    total_checkpoints = 10  # Valor base configurable
-    calculated_percent = round((completed_count / total_checkpoints) * 100, 2) if total_checkpoints > 0 else 0.0
-
-    return StudentDashboard(
-        student_id=student_id,
-        progress_percent=calculated_percent,
-        completed_modules_count=0,
-        total_modules_count=5,
-        modules=[],
+            ON CONFLICT(student_id, checkpoint_id) DO UPDATE SET
+                status = excluded.status,
+                points = excluded.points,
+                completed_at = excluded.completed_at
+        """,
+        (
+            submission.student_id,
+            module_id,
+            submission.checkpoint_id,
+            submission.status,
+            10,
+            completed_at,
+        ),
     )
+    conn.commit()
+  return {
+      "student_id": submission.student_id,
+      "checkpoint_id": submission.checkpoint_id,
+      "status": submission.status,
+  }
 
-def get_teacher_analytics() -> TeacherAnalytics:
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT user_id, COUNT(DISTINCT checkpoint_id) as total_completed
+
+def get_student_dashboard(student_id: str) -> dict[str, Any] | None:
+  init_db()
+  with get_db() as conn:
+    cursor = conn.execute(
+        """
+            SELECT student_id, module_id, checkpoint_id, status, points, completed_at
             FROM checkpoint_progress
-            WHERE completed = 1 OR status = 'completed'
-            GROUP BY user_id
-        """)
-        rows = cursor.fetchall()
-        students_list = [dict(row) for row in rows]
+            WHERE student_id = ?
+        """,
+        (student_id,),
+    )
+    rows = cursor.fetchall()
 
-        return TeacherAnalytics(
-            total_students=len(students_list),
-            active_labs=5,
-            students=students_list
-        )
+  completed_checkpoints = [
+      row["checkpoint_id"] for row in rows if row["status"] == "done"
+  ]
+  total_completed = len(completed_checkpoints)
+
+  return {
+      "student_id": student_id,
+      "progress_percent": float(total_completed * 10),
+      "completed_modules_count": 0,
+      "total_modules_count": 10,
+      "modules": [dict(r) for r in rows],
+  }
+
+
+def save_survey(submission: SurveySubmission):
+  init_db()
+  submitted_at = datetime.utcnow().isoformat()
+  with get_db() as conn:
+    conn.execute(
+        """
+            INSERT INTO survey_responses (student_id, module_id, responses, submitted_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(student_id, module_id) DO UPDATE SET
+                responses = excluded.responses,
+                submitted_at = excluded.submitted_at
+        """,
+        (
+            submission.student_id,
+            submission.module_id,
+            json.dumps(submission.responses),
+            submitted_at,
+        ),
+    )
+    conn.commit()
