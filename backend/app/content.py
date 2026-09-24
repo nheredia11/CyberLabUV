@@ -36,28 +36,15 @@ def load_catalog() -> list[CatalogItem]:
   return items
 
 
-def load_module(module_id: str) -> ModuleDetail | None:
-  catalog = load_catalog()
-  found = next((item for item in catalog if item.id == module_id), None)
-  if not found:
-    return None
-
-  return ModuleDetail(
-      id=found.id,
-      title=found.title,
-      description=found.description,
-      category=found.category,
-      difficulty=found.difficulty,
-      estimated_hours=found.estimated_hours,
-      route=found.route,
-      active=found.active,
-      checkpoints=[
-          CheckpointDef(
-              id=f"{found.id}_cp1",
-              title="Checkpoint 1",
-              type="flag",
-              question="¿Cuál es la bandera?",
-              points=10,
-          )
-      ],
-  )
+def load_all_modules():
+    # Cargar módulos del catálogo
+    raw_modules = [load_module(item.id) for item in load_catalog()]
+    
+    # 1. Filtrar los módulos que hayan devuelto None
+    modules = [m for m in raw_modules if m is not None]
+    
+    # 2. Ordenar de forma segura manejando la falta del atributo 'orden' o valores None
+    return sorted(
+        modules, 
+        key=lambda module: getattr(module, "orden", 0) if getattr(module, "orden", None) is not None else 0
+    )
