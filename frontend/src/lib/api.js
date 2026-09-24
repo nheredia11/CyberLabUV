@@ -206,7 +206,8 @@ export function getStudentDashboard(userId) {
 }
 
 export async function submitCheckpoint(studentId, moduleId, checkpointId, evidence, status = "done") {
-  const response = await fetch(`/api/students/${studentId}/modules/${moduleId}/checkpoints`, {
+  // Ajustado para coincidir con @app.post("/api/checkpoints/submit") de main.py
+  const response = await fetch('/api/checkpoints/submit', {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -214,6 +215,7 @@ export async function submitCheckpoint(studentId, moduleId, checkpointId, eviden
     },
     body: JSON.stringify({
       student_id: studentId,
+      module_id: moduleId, // Opcional, dependiendo de tu modelo de datos actual
       checkpoint_id: checkpointId,
       evidence: evidence,
       status: status,
