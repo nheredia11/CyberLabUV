@@ -14,7 +14,12 @@ from .schemas import (
     SurveySubmission,
 )
 from .content import load_catalog, load_module
-from .storage import save_checkpoint, get_student_dashboard, save_survey
+from .storage import (
+    save_checkpoint, 
+    get_student_dashboard, 
+    save_survey,
+    get_student_module_progress
+)
 from .auth import (
     get_current_user,
     require_teacher_role,
@@ -26,30 +31,19 @@ from pydantic import BaseModel
 from typing import Optional
 
 from .scenario_runner import start_scenario_session, stop_scenario_session
-from .database import init_db   # o como se llame tu función de inicialización
+from .database import init_db
 
 import asyncio
 from contextlib import asynccontextmanager
 from .cleanup import start_cleanup_scheduler, cleanup_expired_sessions
-from .database import init_db
 
 logger = logging.getLogger("cyberlab")
 
-app = FastAPI(title="CyberLabUV API")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-class ScenarioActionRequest(BaseModel):
+class ScenarioCommandRequest(BaseModel):
     user_id: str
-    action: str          # "start" o "stop"
-    
-from contextlib import asynccontextmanager
+    scenario_id: str
+    command: str
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -77,96 +71,133 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/health")
 async def health_check():
-  return {"status": "healthy"}
+    return {"status": "healthy"}
 
 
 @app.post("/api/auth/google")
 async def google_login(payload: GoogleLoginRequest):
-  user_id = "6472bc6ba01d"
-  email = "estudiante@uv.edu.co"
-  role = "student"
-  token = create_session(user_id=user_id, role=role, email=email)
-  return {
-      "status": "ok",
-      "user_id": user_id,
-      "email": email,
-      "role": role,
-      "token": token,
-  }
+    user_id = "6472bc6ba01d"
+    email = "estudiante@uv.edu.co"
+    role = "student"
+    token = create_session(user_id=user_id, role=role, email=email)
+    return {
+        "status": "ok",
+        "user_id": user_id,
+        "email": email,
+        "role": role,
+        "token": token,
+    }
 
 
 @app.post("/api/auth/dev-login")
 async def dev_login(role: str = "teacher"):
-  if not is_dev_login_enabled():
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="El inicio de sesión de desarrollo está deshabilitado.",
-    )
-  user_id = "dev_user"
-  token = create_session(user_id=user_id, role=role, email="dev@uv.edu.co")
-  return {
-      "status": "ok",
-      "user_id": user_id,
-      "role": role,
-      "token": token,
-  }
+    if not is_dev_login_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El inicio de sesión de desarrollo está deshabilitado.",
+        )
+    user_id = "dev_user"
+    token = create_session(user_id=user_id, role=role, email="dev@uv.edu.co")
+    return {
+        "status": "ok",
+        "user_id": user_id,
+        "role": role,
+        "token": token,
+    }
 
 
 @app.get("/api/modules", response_model=list[CatalogItem])
 @app.get("/api/catalog", response_model=list[CatalogItem])
 async def list_modules():
-  return load_catalog()
+    return load_catalog()
 
 
 @app.get("/api/modules/{module_id}", response_model=ModuleDetail)
 @app.get("/api/catalog/{module_id}", response_model=ModuleDetail)
 async def get_module(module_id: str):
-  detail = load_module(module_id)
-  if not detail:
-    raise HTTPException(
-        status_code=404, detail=f"Módulo {module_id} no encontrado"
-    )
-  return detail
+    detail = load_module(module_id)
+    if not detail:
+        raise HTTPException(
+            status_code=404, detail=f"Módulo {module_id} no encontrado"
+        )
+    return detail
+
+@app.get("/api/modules/{module_id}/feedback")
+async def get_module_feedback(module_id: str, user_id: str) -> dict[str, str]:
+    """
+    Calcula el mensaje de retroalimentación adaptativa basándose en el progreso del estudiante.
+    """
+    progress = get_student_module_progress(user_id, module_id)
+    
+    if not progress or progress.get("progress_percent", 0) == 0:
+        return {
+            "level": "Inicial", 
+            "message": "Inicia la práctica y guarda tus primeros checkpoints para recibir orientación."
+        }
+        
+    if progress.get("progress_percent", 0) >= 100:
+        return {
+            "level": "Autónomo", 
+            "message": "¡Excelente! Has dominado el escenario por completo y validado todos tus hallazgos."
+        }
+        
+    return {
+        "level": "En consolidación",
+        "message": f"Vas por buen camino. Has completado {progress.get('checkpoints_completed', 0)} checkpoint(s). Continúa extrayendo evidencia de la terminal."
+    }
 
 
 @app.get("/api/students/{student_id}/dashboard", response_model=StudentDashboard)
 async def get_dashboard(student_id: str):
-  dashboard = get_student_dashboard(student_id)
-  if not dashboard:
-    catalog = load_catalog()
-    return StudentDashboard(
-        student_id=student_id,
-        progress_percent=0.0,
-        completed_modules_count=0,
-        total_modules_count=len(catalog),
-        modules=[],
-    )
-  return dashboard
+    dashboard = get_student_dashboard(student_id)
+    if not dashboard:
+        catalog = load_catalog()
+        return StudentDashboard(
+            student_id=student_id,
+            progress_percent=0.0,
+            completed_modules_count=0,
+            total_modules_count=len(catalog),
+            modules=[],
+        )
+    return dashboard
 
 
 @app.post("/api/checkpoints/submit")
 async def submit_checkpoint(submission: CheckpointSubmission):
-  result = save_checkpoint(submission)
-  return {"status": "ok", "result": result}
+    result = save_checkpoint(submission)
+    return {"status": "ok", "result": result}
 
 
 @app.post("/api/surveys/submit")
 async def submit_survey(submission: SurveySubmission):
-  save_survey(submission)
-  return {"status": "ok", "message": "Encuesta guardada exitosamente"}
+    save_survey(submission)
+    return {"status": "ok", "message": "Encuesta guardada exitosamente"}
 
 
 @app.get("/api/teacher/analytics")
 async def get_teacher_analytics(
     teacher: dict[str, Any] = Depends(require_teacher_role),
 ):
-  return {"status": "ok", "teacher_id": teacher["user_id"], "analytics": {}}
+    return {"status": "ok", "teacher_id": teacher["user_id"], "analytics": {}}
 
-@app.post("/api/scenarios/{scenario_id}/action")
-async def handle_scenario_action(scenario_id: str, payload: ScenarioActionRequest):
+@app.post("/api/scenarios/{scenario_id}/command")
+async def handle_scenario_command(scenario_id: str, payload: ScenarioCommandRequest):
+    # Aquí irá tu lógica para inyectar comandos en Docker
+    return {"status": "success", "output": f"Comando ejecutado en {scenario_id}"}
+
+@app.post("/api/scenarios/{scenario_id}/{action}")
+async def handle_scenario_action(scenario_id: str, action: str, payload: ScenarioActionRequest):
     """
     Inicia o detiene un escenario de forma aislada por estudiante.
     """
