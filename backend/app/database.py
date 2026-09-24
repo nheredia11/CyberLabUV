@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Dict, Optional
 
 from .config import get_settings
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -19,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   avatar TEXT,
   created_at TEXT NOT NULL
 );
+
 CREATE TABLE IF NOT EXISTS checkpoint_submissions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
@@ -30,6 +33,7 @@ CREATE TABLE IF NOT EXISTS checkpoint_submissions (
   updated_at TEXT NOT NULL,
   UNIQUE(user_id, module_id, checkpoint_id)
 );
+
 CREATE TABLE IF NOT EXISTS surveys (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
@@ -39,6 +43,7 @@ CREATE TABLE IF NOT EXISTS surveys (
   comments TEXT,
   created_at TEXT NOT NULL
 );
+
 CREATE TABLE IF NOT EXISTS scenario_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
@@ -48,6 +53,7 @@ CREATE TABLE IF NOT EXISTS scenario_events (
   message TEXT,
   created_at TEXT NOT NULL
 );
+
 CREATE TABLE IF NOT EXISTS notes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   teacher_id TEXT NOT NULL,
@@ -56,6 +62,7 @@ CREATE TABLE IF NOT EXISTS notes (
   body TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
 CREATE TABLE IF NOT EXISTS terminal_commands (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
@@ -65,6 +72,26 @@ CREATE TABLE IF NOT EXISTS terminal_commands (
   output TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+-- NUEVA TABLA: Sesiones de Práctica aisladas en Docker
+CREATE TABLE IF NOT EXISTS practice_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    scenario_slug TEXT NOT NULL,
+    docker_project_name TEXT UNIQUE NOT NULL,
+    assigned_ports TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'starting',
+    started_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    ended_at TEXT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_scenario 
+ON practice_sessions(user_id, scenario_slug);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_status_expires 
+ON practice_sessions(status, expires_at);
 """
 
 DEFAULT_USERS = [
@@ -76,9 +103,14 @@ def utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 @contextmanager
-def connect() -> Iterator[sqlite3.Connection]:
+def get_db_connection() -> Iterator[sqlite3.Connection]:
+    """Abre y retorna una conexión a SQLite asegurando que el directorio exista."""
     db_path: Path = get_settings().database_path
-    conn = sqlite3.connect(db_path)
+    
+    # Previene el error de "unable to open database file" en Docker
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    conn = sqlite3.connect(db_path, timeout=15.0)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -86,8 +118,11 @@ def connect() -> Iterator[sqlite3.Connection]:
     finally:
         conn.close()
 
+# Alias por retrocompatibilidad con importaciones previas
+connect = get_db_connection
+
 def init_db() -> None:
-    with connect() as conn:
+    with get_db_connection() as conn:
         conn.executescript(SCHEMA)
         for user in DEFAULT_USERS:
             conn.execute(
@@ -95,7 +130,6 @@ def init_db() -> None:
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (user["id"], user["name"], user["email"], user["role"], user["avatar"], utcnow()),
             )
-    init_practice_sessions_table()
 
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row else None
@@ -111,55 +145,9 @@ def loads(value: str | None, default: Any = None) -> Any:
         return default
     return json.loads(value)
 
-
 # ============================================================
 # PRACTICE SESSIONS - Aislamiento de escenarios Docker
 # ============================================================
-
-import json
-import uuid
-from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
-from pathlib import Path
-
-from .config import get_settings
-
-
-def _get_practice_db_connection():
-    """Conexión a SQLite usando la configuración central del proyecto."""
-    db_path = get_settings().absolute_database_path
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db_path), timeout=15.0)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def init_practice_sessions_table() -> None:
-    """Crea la tabla practice_sessions e índices si no existen."""
-    with _get_practice_db_connection() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS practice_sessions (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                scenario_slug TEXT NOT NULL,
-                docker_project_name TEXT UNIQUE NOT NULL,
-                assigned_ports TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'starting',
-                started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                expires_at DATETIME NOT NULL,
-                ended_at DATETIME NULL
-            );
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_sessions_user_scenario 
-            ON practice_sessions(user_id, scenario_slug);
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_sessions_status_expires 
-            ON practice_sessions(status, expires_at);
-        """)
-        conn.commit()
-
 
 def create_practice_session(
     user_id: str,
@@ -171,11 +159,11 @@ def create_practice_session(
 ) -> Dict[str, Any]:
     """Crea una nueva sesión de práctica con UUID completo."""
     full_session_id = session_id if (session_id and len(session_id) == 36) else str(uuid.uuid4())
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expires_at = now + timedelta(minutes=duration_minutes)
-    ports_json = json.dumps(assigned_ports)
+    ports_json = dumps(assigned_ports)
 
-    with _get_practice_db_connection() as conn:
+    with get_db_connection() as conn:
         conn.execute(
             """
             INSERT INTO practice_sessions 
@@ -192,7 +180,6 @@ def create_practice_session(
                 expires_at.isoformat(),
             ),
         )
-        conn.commit()
 
     return {
         "id": full_session_id,
@@ -206,10 +193,9 @@ def create_practice_session(
         "ended_at": None,
     }
 
-
 def get_active_session(user_id: str, scenario_slug: str) -> Optional[Dict[str, Any]]:
     """Obtiene la sesión activa ('running') más reciente de un estudiante para un escenario."""
-    with _get_practice_db_connection() as conn:
+    with get_db_connection() as conn:
         cursor = conn.execute(
             """
             SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports, 
@@ -225,13 +211,12 @@ def get_active_session(user_id: str, scenario_slug: str) -> Optional[Dict[str, A
             return None
 
         session_dict = dict(row)
-        session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
+        session_dict["assigned_ports"] = loads(session_dict["assigned_ports"])
         return session_dict
-
 
 def get_session_by_id(session_id: str) -> Optional[Dict[str, Any]]:
     """Busca una sesión por su UUID."""
-    with _get_practice_db_connection() as conn:
+    with get_db_connection() as conn:
         cursor = conn.execute(
             """
             SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports, 
@@ -246,45 +231,32 @@ def get_session_by_id(session_id: str) -> Optional[Dict[str, Any]]:
             return None
 
         session_dict = dict(row)
-        session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
+        session_dict["assigned_ports"] = loads(session_dict["assigned_ports"])
         return session_dict
 
-
-def update_session_status(session_id: str, status: str) -> Optional[Dict[str, Any]]:
-    """Actualiza el estado de una sesión."""
-    terminal_statuses = {"completed", "stopped", "expired", "error"}
-    ended_at = datetime.utcnow().isoformat() if status in terminal_statuses else None
-
-    with _get_practice_db_connection() as conn:
-        conn.execute(
-            """
-            UPDATE practice_sessions 
-            SET status = ?, ended_at = COALESCE(?, ended_at)
-            WHERE id = ?
-            """,
-            (status, ended_at, session_id),
+def update_session_status(session_id: str, new_status: str) -> None:
+    """Actualiza el estado de una sesión en la base de datos."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE sessions SET status = ? WHERE id = ?",
+            (new_status, session_id)
         )
         conn.commit()
 
-    return get_session_by_id(session_id)
-
-def get_expired_running_sessions() -> list[Dict[str, Any]]:
-    """Obtiene todas las sesiones 'running' cuyo tiempo asignado ya expiró."""
-    now_iso = datetime.utcnow().isoformat()
-    with _get_practice_db_connection() as conn:
-        cursor = conn.execute(
+def get_expired_running_sessions() -> list[dict]:
+    """Obtiene todas las sesiones con estado 'running' cuya fecha de expiración ha pasado."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
+    with get_db_connection() as conn:  # Usa la función de conexión existente en tu database.py
+        cursor = conn.cursor()
+        cursor.execute(
             """
-            SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports, 
-                   status, started_at, expires_at
-            FROM practice_sessions 
+            SELECT id, user_id, scenario_slug, docker_project_name, status, expires_at
+            FROM sessions
             WHERE status = 'running' AND expires_at <= ?
             """,
-            (now_iso,),
+            (now_iso,)
         )
         rows = cursor.fetchall()
-        sessions = []
-        for row in rows:
-            session_dict = dict(row)
-            session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
-            sessions.append(session_dict)
-        return sessions
+        return [dict(row) for row in rows]
