@@ -175,8 +175,10 @@ export default function LearningRoute(props) {
     setCheckpointMessage({ text: "Guardando evidencias...", type: "info" });
     
     try {
-      // Llamada real al backend para persistir las evidencias en SQLite
-      await submitCheckpoint(moduleData.id, user?.id, answers);
+      // Iteramos sobre cada respuesta registrada para enviarla correctamente
+      for (const [checkpointId, evidence] of Object.entries(answers)) {
+        await submitCheckpoint(userId, moduleData.id, checkpointId, evidence);
+      }
       
       setCheckpointMessage({ text: "¡Evidencias registradas! Pendientes de revisión del docente.", type: "success" });
       setTimeout(() => setActivePhase("survey"), 2000); 

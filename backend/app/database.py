@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+import os
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -105,10 +106,11 @@ def utcnow() -> str:
 @contextmanager
 def get_db_connection() -> Iterator[sqlite3.Connection]:
     """Abre y retorna una conexión a SQLite asegurando que el directorio exista."""
-    db_path: Path = get_settings().database_path
+    # Obtenemos la ruta de la base de datos (es un string por defecto)
+    db_path = get_settings().database_path
     
-    # Previene el error de "unable to open database file" en Docker
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    # Garantizamos que el directorio padre exista antes de la conexión
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
     
     conn = sqlite3.connect(db_path, timeout=15.0)
     conn.row_factory = sqlite3.Row
@@ -239,7 +241,7 @@ def update_session_status(session_id: str, new_status: str) -> None:
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE sessions SET status = ? WHERE id = ?",
+            "UPDATE practice_sessions SET status = ? WHERE id = ?",
             (new_status, session_id)
         )
         conn.commit()
@@ -248,12 +250,12 @@ def get_expired_running_sessions() -> list[dict]:
     """Obtiene todas las sesiones con estado 'running' cuya fecha de expiración ha pasado."""
     now_iso = datetime.now(timezone.utc).isoformat()
     
-    with get_db_connection() as conn:  # Usa la función de conexión existente en tu database.py
+    with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
             SELECT id, user_id, scenario_slug, docker_project_name, status, expires_at
-            FROM sessions
+            FROM practice_sessions
             WHERE status = 'running' AND expires_at <= ?
             """,
             (now_iso,)

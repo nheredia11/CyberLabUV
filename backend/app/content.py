@@ -27,13 +27,24 @@ MOCK_CATALOG = [
 ]
 
 
+def load_module(module_id: str) -> ModuleDetail | None:
+    for raw_item in MOCK_CATALOG:
+        if raw_item["id"].upper() == module_id.upper():
+            return ModuleDetail(
+                **raw_item,
+                theory="Contenido teórico del módulo...",
+                checkpoints=[]
+            )
+    return None
+
+
 def load_catalog() -> list[CatalogItem]:
-  items = []
-  for raw_item in MOCK_CATALOG:
-    item = CatalogItem(**raw_item)
-    _ = item.route  # Corregido: usa catalog_item.route
-    items.append(item)
-  return items
+    items = []
+    for raw_item in MOCK_CATALOG:
+        item = CatalogItem(**raw_item)
+        _ = item.route  # Corregido: usa catalog_item.route
+        items.append(item)
+    return items
 
 
 def load_all_modules():

@@ -135,3 +135,31 @@ def save_survey(submission: SurveySubmission):
             ),
         )
         conn.commit()
+        
+
+def get_student_module_progress(student_id: str, module_id: str) -> dict[str, Any]:
+    init_db()
+    with get_db() as conn:
+        cursor = conn.execute(
+            """
+            SELECT checkpoint_id, status 
+            FROM checkpoint_progress
+            WHERE student_id = ? AND module_id = ?
+            """,
+            (student_id, module_id)
+        )
+        rows = cursor.fetchall()
+
+    completed_checkpoints = [row["checkpoint_id"] for row in rows if row["status"] == "done"]
+    checkpoints_completed = len(completed_checkpoints)
+    
+    # Estimación de porcentaje (asumiendo que 4 checkpoints = 100% como base).
+    # Puedes ajustar este multiplicador según el diseño real de tus módulos.
+    progress_percent = min(100.0, float(checkpoints_completed * 25))
+
+    return {
+        "student_id": student_id,
+        "module_id": module_id,
+        "progress_percent": progress_percent,
+        "checkpoints_completed": checkpoints_completed
+    }
