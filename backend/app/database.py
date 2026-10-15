@@ -3,6 +3,7 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
 import os
+import json
 
 DEFAULT_DB_PATH = os.environ.get("CYBERLAB_DB", "data/cyberlabuv.sqlite3")
 
@@ -116,3 +117,15 @@ def update_session_status(session_id: str, status: str):
             (status, utcnow(), session_id)
         )
         conn.commit()
+        
+def dumps(obj: Any) -> str:
+    """Convierte un objeto a JSON string de forma segura."""
+    return json.dumps(obj)
+
+def row_to_dict(row) -> dict[str, Any] | None:
+    """Convierte un Row de sqlite3 a diccionario."""
+    return dict(row) if row else None
+
+def rows_to_dicts(rows) -> list[dict[str, Any]]:
+    """Convierte una lista de Rows de sqlite3 a lista de diccionarios."""
+    return [dict(r) for r in rows]
