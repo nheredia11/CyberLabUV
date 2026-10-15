@@ -148,6 +148,19 @@ export default function Results({ data, user, setView }) {
   const completedModules = data?.completed_modules || 0;
   const generalPercent = clamp(data?.general_percent);
 
+  const downloadPdf = async () => {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`/api/students/${studentId}/report.pdf`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `reporte_${studentId}.pdf`;
+  a.click();
+};
+
   const completedCheckpoints = modules.reduce(
     (acc, module) => acc + (module.progress?.completed_checkpoints || 0),
     0,
@@ -231,6 +244,21 @@ export default function Results({ data, user, setView }) {
             <Download size={16} /> Exportar
           </button>
         </div>
+        <section className="results-report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid #30363d' }}>
+        <div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', background: '#21262d', color: '#c9d1d9', padding: '4px 10px', borderRadius: '12px', marginBottom: '10px' }}>
+            <FileText size={15} /> Informe formativo
+          </span>
+          <h2 style={{ margin: '0 0 10px 0', color: '#c9d1d9', fontSize: '24px' }}>Resultados de {studentName}</h2>
+          <p style={{ margin: 0, color: '#8b949e' }}>Resumen de desempeño, evidencias y recomendaciones.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {/* BOTÓN ACTUALIZADO PARA DESCARGAR PDF */}
+          <button onClick={downloadPdf} style={{ padding: '8px 15px', background: '#238636', color: '#ffffff', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold' }}>
+            <Download size={16} /> Descargar PDF
+          </button>
+        </div>
+      </section>
       </section>
 
       {/* SUMMARY CARD */}

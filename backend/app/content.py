@@ -117,3 +117,9 @@ def load_all_modules() -> list[ModuleDetail]:
                 if mod:
                     modules.append(mod)
     return sorted(modules, key=lambda m: getattr(m, "orden", 0))
+
+
+def load_modules() -> list[dict[str, Any]]:
+    """Función de compatibilidad para servicios antiguos que esperan diccionarios."""
+    items = load_catalog()
+    return [item.model_dump() for item in items]
