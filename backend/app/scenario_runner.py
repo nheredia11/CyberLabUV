@@ -251,3 +251,56 @@ async def run_scenario_action(scenario_id: str, action: str, user_id: str = "ano
         return success, 0 if success else 1, "", "", message
 
     return False, None, "", "", f"Acción no soportada: {action}"
+
+
+# Lista blanca estricta de comandos permitidos en el entorno controlado
+ALLOWED_COMMANDS = {
+    "nmap", "ping", "curl", "cat", "ls", "whoami", "id", 
+    "nc", "dig", "grep", "python", "echo", "pwd", "netstat", "ps", "head", "tail"
+}
+
+
+async def run_scenario_command(
+    user_id: str,
+    scenario_id: str,
+    command: str,
+) -> Tuple[bool, str]:
+    """
+    Ejecuta un comando permitido dentro del contenedor atacante de la sesión activa del estudiante.
+    """
+    settings = get_settings()
+    normalized_id = scenario_id.upper()
+    scenario = SCENARIOS.get(normalized_id)
+    if not scenario:
+        return False, f"Escenario {scenario_id} no encontrado"
+
+    active = get_active_session(user_id, scenario.slug)
+    if not active:
+        return False, "No hay una sesión activa para este escenario. Inícialo primero."
+
+    parts = command.strip().split()
+    if not parts:
+        return False, "Comando vacío"
+
+    base_cmd = parts[0].lower()
+    if base_cmd not in ALLOWED_COMMANDS:
+        return False, f"Comando '{base_cmd}' no permitido por la política de seguridad del simulador."
+
+    project_name = active["docker_project_name"]
+    compose_path = settings.root_dir / scenario.compose_file
+    service_name = scenario.attacker_service
+
+    # Ejecutar docker compose exec dentro del contenedor específico de la sesión
+    cmd = [
+        "docker", "compose",
+        "-p", project_name,
+        "-f", str(compose_path),
+        "exec", "-T", service_name,
+    ] + parts
+
+    returncode, stdout, stderr = await _run_cmd_async(cmd, cwd=settings.root_dir, timeout=30)
+
+    if returncode != 0:
+        return False, f"Error ejecutando comando: {stderr or stdout}"
+
+    return True, stdout

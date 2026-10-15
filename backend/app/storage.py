@@ -2,164 +2,147 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import sqlite3
-from datetime import datetime
 from typing import Any
+from .database import get_db_connection, utcnow
 from .schemas import CheckpointSubmission, SurveySubmission
+from .content import load_module, load_all_modules, load_catalog
 
 logger = logging.getLogger("cyberlab")
 
-# Lee la ruta del archivo SQLite desde la variable de entorno CYBERLAB_DB
-DB_PATH = os.environ.get("CYBERLAB_DB", "cyberlab.db")
-
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def init_db():
-    with get_db() as conn:
-        # Inspeccionar la estructura existente de la tabla checkpoint_progress
-        cursor = conn.execute("PRAGMA table_info(checkpoint_progress)")
-        columns = [row["name"] for row in cursor.fetchall()]
-
-        # Si la tabla existe pero no tiene 'student_id', es un esquema obsoleto
-        if columns and "student_id" not in columns:
-            logger.warning(
-                "ADVERTENCIA: Se detectó un esquema antiguo en 'checkpoint_progress' "
-                "(falta la columna 'student_id'). Eliminando y recreando la tabla."
-            )
-            conn.execute("DROP TABLE checkpoint_progress")
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS checkpoint_progress (
-                student_id TEXT NOT NULL,
-                module_id TEXT NOT NULL,
-                checkpoint_id TEXT NOT NULL,
-                status TEXT NOT NULL,
-                points INTEGER DEFAULT 0,
-                completed_at TEXT,
-                PRIMARY KEY (student_id, checkpoint_id)
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS survey_responses (
-                student_id TEXT NOT NULL,
-                module_id TEXT NOT NULL,
-                responses TEXT NOT NULL,
-                submitted_at TEXT NOT NULL,
-                PRIMARY KEY (student_id, module_id)
-            )
-        """)
-        conn.commit()
-
 
 def save_checkpoint(submission: CheckpointSubmission) -> dict[str, Any]:
-    init_db()
-    completed_at = datetime.utcnow().isoformat()
+    now = utcnow()
     module_id = getattr(submission, "module_id", "default")
-    with get_db() as conn:
+    user_id = getattr(submission, "user_id", getattr(submission, "student_id", "demo-student"))
+    status = getattr(submission, "status", "done")
+    evidence = getattr(submission, "evidence", "")
+
+    with get_db_connection() as conn:
         conn.execute(
             """
-            INSERT INTO checkpoint_progress (student_id, module_id, checkpoint_id, status, points, completed_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(student_id, checkpoint_id) DO UPDATE SET
+            INSERT INTO checkpoint_submissions (user_id, module_id, checkpoint_id, status, evidence, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, module_id, checkpoint_id) DO UPDATE SET
                 status = excluded.status,
-                points = excluded.points,
-                completed_at = excluded.completed_at
-        """,
-            (
-                submission.student_id,
-                module_id,
-                submission.checkpoint_id,
-                submission.status,
-                10,
-                completed_at,
-            ),
+                evidence = excluded.evidence,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, module_id, submission.checkpoint_id, status, evidence, now, now),
         )
         conn.commit()
     return {
-        "student_id": submission.student_id,
+        "user_id": user_id,
+        "module_id": module_id,
         "checkpoint_id": submission.checkpoint_id,
-        "status": submission.status,
+        "status": status,
     }
 
 
-def get_student_dashboard(student_id: str) -> dict[str, Any] | None:
-    init_db()
-    with get_db() as conn:
+def get_student_dashboard(user_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
         cursor = conn.execute(
             """
-            SELECT student_id, module_id, checkpoint_id, status, points, completed_at
-            FROM checkpoint_progress
-            WHERE student_id = ?
-        """,
-            (student_id,),
+            SELECT user_id, module_id, checkpoint_id, status, evidence, updated_at
+            FROM checkpoint_submissions
+            WHERE user_id = ?
+            """,
+            (user_id,),
         )
         rows = cursor.fetchall()
 
     completed_checkpoints = [
-        row["checkpoint_id"] for row in rows if row["status"] == "done"
+        row["checkpoint_id"] for row in rows if row["status"] in ("done", "completed")
     ]
-    total_completed = len(completed_checkpoints)
+    
+    catalog = load_catalog()
+    all_modules = load_all_modules()
+    total_modules = len(catalog)
+
+    # Calcular progreso total basado en todos los checkpoints reales de todos los módulos
+    total_all_checkpoints = sum(len(m.checkpoints) for m in all_modules)
+    total_completed = len([r for r in rows if r["status"] in ("done", "completed")])
+
+    progress_percent = 0.0
+    if total_all_checkpoints > 0:
+        progress_percent = min(100.0, float((total_completed / total_all_checkpoints) * 100))
 
     return {
-        "student_id": student_id,
-        "progress_percent": float(total_completed * 10),
-        "completed_modules_count": 0,
-        "total_modules_count": 10,
+        "student_id": user_id,
+        "user_id": user_id,
+        "progress_percent": progress_percent,
+        "completed_modules_count": sum(
+            1 for m in all_modules 
+            if m.checkpoints and all(cp.id in completed_checkpoints for cp in m.checkpoints)
+        ),
+        "total_modules_count": total_modules,
         "modules": [dict(r) for r in rows],
     }
 
 
 def save_survey(submission: SurveySubmission):
-    init_db()
-    submitted_at = datetime.utcnow().isoformat()
-    with get_db() as conn:
+    now = utcnow()
+    user_id = getattr(submission, "user_id", getattr(submission, "student_id", "demo-student"))
+    module_id = submission.module_id
+    responses = getattr(submission, "responses", {})
+    rating = getattr(submission, "rating", None)
+    comments = getattr(submission, "comments", "")
+
+    with get_db_connection() as conn:
         conn.execute(
             """
-            INSERT INTO survey_responses (student_id, module_id, responses, submitted_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(student_id, module_id) DO UPDATE SET
-                responses = excluded.responses,
-                submitted_at = excluded.submitted_at
-        """,
-            (
-                submission.student_id,
-                submission.module_id,
-                json.dumps(submission.responses),
-                submitted_at,
-            ),
+            INSERT INTO surveys (user_id, module_id, answers_json, rating, comments, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, module_id) DO UPDATE SET
+                answers_json = excluded.answers_json,
+                rating = excluded.rating,
+                comments = excluded.comments
+            """,
+            (user_id, module_id, json.dumps(responses), rating, comments, now),
         )
         conn.commit()
-        
 
-def get_student_module_progress(student_id: str, module_id: str) -> dict[str, Any]:
-    init_db()
-    with get_db() as conn:
+
+def get_student_module_progress(user_id: str, module_id: str) -> dict[str, Any]:
+    with get_db_connection() as conn:
         cursor = conn.execute(
             """
             SELECT checkpoint_id, status 
-            FROM checkpoint_progress
-            WHERE student_id = ? AND module_id = ?
+            FROM checkpoint_submissions
+            WHERE user_id = ? AND module_id = ?
             """,
-            (student_id, module_id)
+            (user_id, module_id)
         )
         rows = cursor.fetchall()
 
-    completed_checkpoints = [row["checkpoint_id"] for row in rows if row["status"] == "done"]
+    completed_checkpoints = [row["checkpoint_id"] for row in rows if row["status"] in ("done", "completed")]
     checkpoints_completed = len(completed_checkpoints)
     
-    # Estimación de porcentaje (asumiendo que 4 checkpoints = 100% como base).
-    # Puedes ajustar este multiplicador según el diseño real de tus módulos.
-    progress_percent = min(100.0, float(checkpoints_completed * 25))
+    mod = load_module(module_id)
+    total_checkpoints = len(mod.checkpoints) if mod and mod.checkpoints else 0
+
+    progress_percent = 0.0
+    if total_checkpoints > 0:
+        progress_percent = min(100.0, float((checkpoints_completed / total_checkpoints) * 100))
+    elif checkpoints_completed > 0:
+        progress_percent = min(100.0, float(checkpoints_completed * 25))
 
     return {
-        "student_id": student_id,
+        "user_id": user_id,
+        "student_id": user_id,
         "module_id": module_id,
         "progress_percent": progress_percent,
-        "checkpoints_completed": checkpoints_completed
+        "checkpoints_completed": checkpoints_completed,
+        "total_checkpoints": total_checkpoints,
+    }
+
+
+def get_teacher_analytics() -> dict[str, Any]:
+    with get_db_connection() as conn:
+        cursor = conn.execute("SELECT COUNT(*) as total FROM checkpoint_submissions")
+        total_sub = cursor.fetchone()["total"]
+        cursor2 = conn.execute("SELECT * FROM checkpoint_submissions")
+        submissions = [dict(r) for r in cursor2.fetchall()]
+    return {
+        "total_submissions": total_sub,
+        "submissions": submissions,
     }
