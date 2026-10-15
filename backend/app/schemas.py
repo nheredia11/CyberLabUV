@@ -7,37 +7,52 @@ from pydantic import AliasChoices, BaseModel, Field
 class CatalogItem(BaseModel):
     id: str
     title: str = Field(..., validation_alias=AliasChoices("title", "titulo"))
-    description: str = ""
+    description: str = Field("", validation_alias=AliasChoices("description", "descripcion"))
     category: str = "general"
     difficulty: str = "beginner"
     estimated_hours: int = 1
     route: str = Field("", validation_alias=AliasChoices("route", "ruta", "path"))
     active: bool = True
+    orden: int = Field(0, validation_alias=AliasChoices("orden", "order"))
 
     model_config = {"populate_by_name": True}
+
+    @property
+    def ruta(self) -> str:
+        return self.route
+
+    @property
+    def order(self) -> int:
+        return self.orden
 
 
 class CheckpointDef(BaseModel):
     id: str
-    title: str = Field(..., validation_alias=AliasChoices("title", "titulo"))
-    type: str = "flag"
-    question: str = ""
+    title: str = Field(..., validation_alias=AliasChoices("title", "titulo", "evidencia"))
+    type: str = Field("flag", validation_alias=AliasChoices("type", "tipo"))
+    question: str = Field("", validation_alias=AliasChoices("question", "evidencia", "titulo"))
     points: int = 10
 
     model_config = {"populate_by_name": True}
 
 
 class ModuleDetail(CatalogItem):
+    theory: str = ""
     checkpoints: list[CheckpointDef] = Field(default_factory=list)
+    survey: list[dict[str, Any]] = Field(default_factory=list, validation_alias=AliasChoices("survey", "surveys", "encuesta"))
 
 
 class CheckpointSubmission(BaseModel):
     student_id: str = Field(..., validation_alias=AliasChoices("student_id", "user_id"))
+    module_id: str = "default"
     checkpoint_id: str
     evidence: str = ""
     status: str = Field("done", validation_alias=AliasChoices("status", "completed"))
 
     model_config = {"populate_by_name": True}
+
+
+CheckpointPayload = CheckpointSubmission
 
 
 class CheckpointProgressRecord(BaseModel):
@@ -81,18 +96,21 @@ class TeacherAnalytics(BaseModel):
 
 
 class GoogleLoginRequest(BaseModel):
-    credential: str
+    credential: str = Field(..., validation_alias=AliasChoices("credential", "id_token"))
 
 
 class SurveySubmission(BaseModel):
     student_id: str = Field(..., validation_alias=AliasChoices("student_id", "user_id"))
     module_id: str
-    responses: dict[str, Any] = Field(default_factory=dict)
+    responses: dict[str, Any] = Field(default_factory=dict, validation_alias=AliasChoices("responses", "answers", "answers_json"))
+    rating: int | None = None
+    comments: str = ""
 
     model_config = {"populate_by_name": True}
 
 
-class ScenarioActionResponse(BaseModel):
-    status: str
-    message: str = ""
-    scenario_id: str = ""
+class ScenarioActionRequest(BaseModel):
+    user_id: str
+    action: str | None = None
+
+    model_config = {"populate_by_name": True}
