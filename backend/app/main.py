@@ -24,6 +24,7 @@ from .storage import (
     save_survey,
     get_student_module_progress,
     get_teacher_analytics as get_real_teacher_analytics,
+    save_note,
 )
 from .auth import (
     get_current_user,
@@ -32,8 +33,15 @@ from .auth import (
     create_session,
 )
 from .scenario_runner import start_scenario_session, stop_scenario_session, run_scenario_command
-from .database import init_db
+from .database import init_db, utcnow
 from .cleanup import start_cleanup_scheduler, cleanup_expired_sessions
+from .content import load_catalog, load_module, load_all_modules
+from .services import get_or_create_google_user
+from .config import get_settings
+from fastapi.responses import Response
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import io
 
 logger = logging.getLogger("cyberlab")
 
@@ -87,24 +95,20 @@ async def get_users(role: str = "", current_user: dict = Depends(get_current_use
         {"user_id": "dev_user", "email": "dev@uv.edu.co", "role": "teacher"}
     ]
     
+   
 @app.post("/api/auth/login")
 async def login_demo(payload: LoginDemoRequest):
-    user_id = payload.email.split("@")[0] if payload.email else "demo-user"
-    token = create_session(user_id=user_id, role=payload.role, email=payload.email)
-    return {
-        "status": "ok",
-        "user_id": user_id,
-        "email": payload.email,
-        "role": payload.role,
-        "token": token,
-    }
-
-
-@app.post("/api/auth/google")
-async def google_login(payload: GoogleLoginRequest):
-    user_id = "6472bc6ba01d"
-    email = "estudiante@uv.edu.co"
-    role = "student"
+    if not is_dev_login_enabled():
+        raise HTTPException(status_code=403, detail="El login de desarrollo/demo está deshabilitado.")
+    
+    settings = get_settings()
+    email = payload.email.lower().strip()
+    user_id = email.split("@")[0] if email else "demo-user"
+    
+    # Validar rol seguro basado en configuración de docentes
+    teacher_emails = [e.lower().strip() for e in getattr(settings, "teacher_emails", ["dev@uv.edu.co", "docente@uv.edu.co"])]
+    role = "teacher" if email in teacher_emails or "teacher" in email or "prof" in email else "student"
+    
     token = create_session(user_id=user_id, role=role, email=email)
     return {
         "status": "ok",
@@ -113,6 +117,24 @@ async def google_login(payload: GoogleLoginRequest):
         "role": role,
         "token": token,
     }
+
+
+@app.post("/api/auth/google")
+async def google_login(payload: GoogleLoginRequest):
+    try:
+        user_info = get_or_create_google_user(payload.credential)
+        token = create_session(user_id=user_info["id"], role=user_info["role"], email=user_info["email"])
+        return {
+            "status": "ok",
+            "user_id": user_info["id"],
+            "email": user_info["email"],
+            "role": user_info["role"],
+            "token": token,
+            "name": user_info.get("name"),
+            "avatar": user_info.get("avatar")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 
 @app.post("/api/auth/dev-login")
@@ -147,10 +169,12 @@ async def get_module(module_id: str):
             status_code=404, detail=f"Módulo {module_id} no encontrado"
         )
     return detail
-
-
+    
 @app.get("/api/modules/{module_id}/feedback")
-async def get_module_feedback(module_id: str, user_id: str) -> dict[str, str]:
+async def get_module_feedback(module_id: str, user_id: str, current_user: dict = Depends(get_current_user)) -> dict[str, str]:
+    if current_user.get("role") != "teacher" and current_user.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
     progress = get_student_module_progress(user_id, module_id)
     if not progress or progress.get("progress_percent", 0) == 0:
         return {
@@ -166,7 +190,8 @@ async def get_module_feedback(module_id: str, user_id: str) -> dict[str, str]:
         "level": "En consolidación",
         "message": f"Vas por buen camino. Has completado {progress.get('checkpoints_completed', 0)} checkpoint(s). Continúa extrayendo evidencia."
     }
-    
+
+ 
 @app.post("/api/modules/{module_id}/surveys")
 @app.post("/api/surveys/responses")
 async def submit_survey_alt(module_id: str = "default", submission: SurveySubmission = None, payload: dict = None, current_user: dict = Depends(get_current_user)):
@@ -190,15 +215,21 @@ async def submit_survey_alt(module_id: str = "default", submission: SurveySubmis
 
 @app.post("/api/teacher/notes")
 async def create_teacher_note(payload: dict, teacher: dict[str, Any] = Depends(require_teacher_role)):
-    return {"status": "ok", "message": "Nota guardada", "note": payload}
+    note_data = {
+        "teacher_id": teacher["user_id"],
+        "student_id": payload.get("student_id"),
+        "module_id": payload.get("module_id", "general"),
+        "body": payload.get("body", "")
+    }
+    saved = save_note(note_data)
+    return {"status": "ok", "message": "Nota guardada exitosamente", "note": saved}
 
 
 @app.get("/api/students/{student_id}/dashboard", response_model=StudentDashboard)
-async def get_dashboard(student_id: str):
-    """
-    Devuelve el dashboard del estudiante. Tolerante a peticiones sin token
-    para garantizar compatibilidad con la suite de pruebas unitarias y la demo.
-    """
+async def get_dashboard(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "teacher" and current_user.get("user_id") != student_id:
+        raise HTTPException(status_code=403, detail="No autorizado para acceder a este dashboard")
+    
     dashboard = get_student_dashboard(student_id)
     if not dashboard:
         catalog = load_catalog()
@@ -211,11 +242,12 @@ async def get_dashboard(student_id: str):
         )
     return dashboard
 
+
 @app.get("/api/students/{student_id}/report")
-async def get_student_report(student_id: str):
-    """
-    Devuelve las evidencias y progreso consolidado para visualización o exportación a PDF.
-    """
+async def get_student_report(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "teacher" and current_user.get("user_id") != student_id:
+        raise HTTPException(status_code=403, detail="No autorizado para ver este reporte")
+    
     dashboard = get_student_dashboard(student_id)
     all_modules = load_all_modules()
     
@@ -224,8 +256,35 @@ async def get_student_report(student_id: str):
         "title": f"Reporte Académico de Evidencias - CyberLabUV",
         "generated_at": utcnow(),
         "dashboard": dashboard,
-        "modules": [m.dict() for m in all_modules]
+        "modules": [m.model_dump() for m in all_modules]
     }
+    
+@app.get("/api/students/{student_id}/report.pdf")
+async def get_student_report_pdf(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "teacher" and current_user.get("user_id") != student_id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    
+    dashboard = get_student_dashboard(student_id)
+    
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    p.drawString(50, 750, f"Reporte Académico de Evidencias - CyberLabUV")
+    p.drawString(50, 730, f"Estudiante ID: {student_id}")
+    p.drawString(50, 710, f"Progreso General: {dashboard.get('progress_percent', 0)}%")
+    
+    y = 670
+    p.drawString(50, y, "Checkpoints y Actividad:")
+    for mod in dashboard.get("modules", []):
+        y -= 20
+        p.drawString(70, y, f"- Módulo/Checkpoint: {mod.get('checkpoint_id')} [{mod.get('status')}]")
+        if y < 100:
+            p.showPage()
+            y = 750
+            
+    p.save()
+    buffer.seek(0)
+    
+    return Response(buffer.getvalue(), media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=reporte_{student_id}.pdf"})
 
 
 @app.post("/api/checkpoints/submit")

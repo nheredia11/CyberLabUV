@@ -256,8 +256,18 @@ async def run_scenario_action(scenario_id: str, action: str, user_id: str = "ano
 # Lista blanca estricta de comandos permitidos en el entorno controlado
 ALLOWED_COMMANDS = {
     "nmap", "ping", "curl", "cat", "ls", "whoami", "id", 
-    "nc", "dig", "grep", "python", "echo", "pwd", "netstat", "ps", "head", "tail"
+    "nc", "dig", "grep", "echo", "pwd", "netstat", "ps", "head", "tail"
 }
+
+FORBIDDEN_CHARS = {";", "|", "&", "$", "`", ">", "<"}
+
+async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> Tuple[bool, str]:
+    if any(char in command for char in FORBIDDEN_CHARS):
+        return False, "Comando rechazado: contiene caracteres prohibidos por motivos de seguridad."
+    
+    parts = command.strip().split()
+    if not parts or parts[0].lower() not in ALLOWED_COMMANDS:
+        return False, f"Comando no permitido o vacío."
 
 
 async def run_scenario_command(

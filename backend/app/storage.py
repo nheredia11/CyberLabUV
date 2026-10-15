@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
-from .database import get_db_connection, utcnow
+from .database import get_db_connection, utcnow, init_db
 from .schemas import CheckpointSubmission, SurveySubmission
 from .content import load_module, load_all_modules, load_catalog
 
@@ -146,3 +146,24 @@ def get_teacher_analytics() -> dict[str, Any]:
         "total_submissions": total_sub,
         "submissions": submissions,
     }
+    
+def save_note(payload: dict[str, Any]) -> dict[str, Any]:
+    init_db()
+    now = utcnow()
+    teacher_id = payload.get("teacher_id")
+    student_id = payload.get("student_id")
+    module_id = payload.get("module_id", "general")
+    body = payload.get("body", "")
+    
+    with get_db_connection() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO notes (teacher_id, student_id, module_id, body, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (teacher_id, student_id, module_id, body, now)
+        )
+        conn.commit()
+        note_id = cur.lastrowid
+        
+    return {"id": note_id, **payload, "created_at": now}
