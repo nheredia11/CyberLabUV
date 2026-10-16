@@ -2,190 +2,233 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from pathlib import Path
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any
+from pathlib import Path
+from typing import Any, Iterator, Optional, Dict
 
-# Ruta de la base de datos (compatible con monkeypatch en tests)
-DATABASE_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "cyberlabuv.sqlite3"
+from .config import get_settings
+
+# Aseguramos que sea un objeto Path explícito
+DATABASE_PATH = Path(get_settings().database_path)
+
+SCHEMA = """
+PRAGMA journal_mode=WAL;
+
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('student','teacher')),
+    avatar TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS checkpoint_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    module_id TEXT NOT NULL,
+    checkpoint_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending','done','review')),
+    evidence TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(user_id, module_id, checkpoint_id)
+);
+
+CREATE TABLE IF NOT EXISTS surveys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    module_id TEXT NOT NULL,
+    answers_json TEXT NOT NULL,
+    rating INTEGER,
+    comments TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS scenario_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    scenario_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    status TEXT NOT NULL,
+    message TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_id TEXT NOT NULL,
+    student_id TEXT NOT NULL,
+    module_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS terminal_commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    scenario_id TEXT NOT NULL,
+    command TEXT NOT NULL,
+    status TEXT NOT NULL,
+    output TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS practice_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    scenario_slug TEXT NOT NULL,
+    docker_project_name TEXT NOT NULL,
+    assigned_ports TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'starting',
+    started_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    ended_at TEXT NULL
+);
+"""
+
+DEFAULT_USERS = [
+    {"id": "ana", "name": "Ana Rodríguez", "email": "ana.rodriguez@uv.edu.co", "role": "student", "avatar": "AR"},
+    {"id": "carlos", "name": "Prof. Carlos M.", "email": "carlos.m@uv.edu.co", "role": "teacher", "avatar": "CM"},
+]
 
 def utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-def connect():
-    """Función de compatibilidad que redirige a get_db_connection para servicios antiguos."""
-    return get_db_connection()
+@contextmanager
+def connect() -> Iterator[sqlite3.Connection]:
+    db_path = Path(DATABASE_PATH)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
 
-def get_db_connection():
-    """Conexión a la base de datos SQLite sin llamadas circulares."""
+def get_db_connection() -> sqlite3.Connection:
+    """Función de compatibilidad requerida por storage.py y otros módulos."""
     db_path = Path(DATABASE_PATH)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_db():
-    """Inicializa todas las tablas de la base de datos de forma idempotente."""
-    db_path = Path(DATABASE_PATH)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(str(db_path)) as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS checkpoint_submissions (
-                user_id TEXT,
-                module_id TEXT,
-                checkpoint_id TEXT,
-                status TEXT,
-                evidence TEXT,
-                created_at TEXT,
-                updated_at TEXT,
-                PRIMARY KEY (user_id, module_id, checkpoint_id)
-            );
+def init_db() -> None:
+    with connect() as conn:
+        conn.executescript(SCHEMA)
+        for user in DEFAULT_USERS:
+            conn.execute(
+                """INSERT OR IGNORE INTO users(id, name, email, role, avatar, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (user["id"], user["name"], user["email"], user["role"], user["avatar"], utcnow()),
+            )
 
-            CREATE TABLE IF NOT EXISTS surveys (
-                user_id TEXT,
-                module_id TEXT,
-                answers_json TEXT,
-                rating INTEGER,
-                comments TEXT,
-                created_at TEXT,
-                PRIMARY KEY (user_id, module_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS users (
-                id TEXT PRIMARY KEY,
-                name TEXT,
-                email TEXT UNIQUE,
-                role TEXT,
-                avatar TEXT,
-                created_at TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS notes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                teacher_id TEXT,
-                student_id TEXT,
-                module_id TEXT,
-                body TEXT,
-                created_at TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS consents (
-                user_id TEXT PRIMARY KEY,
-                accepted_at TEXT,
-                version TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS practice_sessions (
-                session_id TEXT PRIMARY KEY,
-                user_id TEXT,
-                scenario_id TEXT,
-                docker_project_name TEXT,
-                assigned_ports TEXT,
-                status TEXT,
-                created_at TEXT
-            );
-        """)
-        conn.commit()
-        
-def get_active_session(user_id: str, scenario_id: str) -> dict[str, Any] | None:
-    """Alias o wrapper para obtener la sesión activa de un escenario."""
-    return get_practice_session(user_id, scenario_id)
-
-# Helpers de sesiones requeridos por el scenario_runner
-def create_practice_session(user_id: str, scenario_id: str, session_id: str, docker_project_name: str, assigned_ports: Any) -> dict[str, Any]:
-    init_db()
-    now = utcnow()
-    ports_str = json.dumps(assigned_ports) if isinstance(assigned_ports, (dict, list)) else str(assigned_ports)
-    with get_db_connection() as conn:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO practice_sessions (session_id, user_id, scenario_id, docker_project_name, assigned_ports, status, created_at)
-            VALUES (?, ?, ?, ?, ?, 'running', ?)
-            """,
-            (session_id, user_id, scenario_id, docker_project_name, ports_str, now)
-        )
-        conn.commit()
-    return {"session_id": session_id, "user_id": user_id, "scenario_id": scenario_id}
-
-def get_practice_session(user_id: str, scenario_id: str) -> dict[str, Any] | None:
-    init_db()
-    with get_db_connection() as conn:
-        row = conn.execute(
-            """
-            SELECT session_id, user_id, scenario_id, docker_project_name, assigned_ports, status, created_at 
-            FROM practice_sessions 
-            WHERE user_id = ? AND scenario_id = ? AND status = 'running'
-            ORDER BY created_at DESC LIMIT 1
-            """,
-            (user_id, scenario_id)
-        ).fetchone()
-        if not row:
-            return None
-        res = dict(row)
-        try:
-            res["assigned_ports"] = json.loads(res["assigned_ports"])
-        except Exception:
-            pass
-        return res
-
-def close_practice_session(user_id: str, scenario_id: str) -> bool:
-    init_db()
-    with get_db_connection() as conn:
-        cursor = conn.execute(
-            """
-            UPDATE practice_sessions SET status = 'stopped' 
-            WHERE user_id = ? AND scenario_id = ? AND status = 'running'
-            """,
-            (user_id, scenario_id)
-        )
-        conn.commit()
-        return cursor.rowcount > 0
-    
-def update_session_status(*args, **kwargs):
-    """Actualiza el estado de una sesión de práctica de forma flexible (por session_id o user_id/scenario_id)."""
-    init_db()
-    with get_db_connection() as conn:
-        if len(args) == 2:
-            session_id, status = args
-            cursor = conn.execute("UPDATE practice_sessions SET status = ? WHERE session_id = ?", (status, session_id))
-        elif len(args) == 3:
-            user_id, scenario_id, status = args
-            cursor = conn.execute("UPDATE practice_sessions SET status = ? WHERE user_id = ? AND scenario_id = ?", (status, user_id, scenario_id))
-        elif "session_id" in kwargs and "status" in kwargs:
-            cursor = conn.execute("UPDATE practice_sessions SET status = ? WHERE session_id = ?", (kwargs["status"], kwargs["session_id"]))
-        elif "user_id" in kwargs and "scenario_id" in kwargs and "status" in kwargs:
-            cursor = conn.execute("UPDATE practice_sessions SET status = ? WHERE user_id = ? AND scenario_id = ?", (kwargs["status"], kwargs["user_id"], kwargs["scenario_id"]))
-        else:
-            return False
-        conn.commit()
-        return cursor.rowcount > 0
-    
-def get_expired_running_sessions() -> list[dict[str, Any]]:
-    """Devuelve las sesiones de práctica que se encuentran en estado 'running' para su limpieza."""
-    init_db()
-    with get_db_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT session_id, user_id, scenario_id, docker_project_name, assigned_ports, status, created_at 
-            FROM practice_sessions 
-            WHERE status = 'running'
-            """
-        ).fetchall()
-        results = []
-        for row in rows:
-            item = dict(row)
-            try:
-                item["assigned_ports"] = json.loads(item["assigned_ports"])
-            except Exception:
-                pass
-            results.append(item)
-        return results
-
-def dumps(obj: Any) -> str:
-    return json.dumps(obj)
-
-def row_to_dict(row) -> dict[str, Any] | None:
+def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row else None
 
-def rows_to_dicts(rows) -> list[dict[str, Any]]:
+def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
+
+def dumps(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+def loads(value: str | None, default: Any = None) -> Any:
+    if not value:
+        return default
+    return json.loads(value)
+
+def create_practice_session(
+    session_id: str,
+    user_id: str,
+    scenario_slug: str,
+    docker_project_name: str,
+    assigned_ports: Any,
+    expires_at: str,
+) -> dict[str, Any]:
+    ports_str = json.dumps(assigned_ports) if isinstance(assigned_ports, (dict, list)) else str(assigned_ports)
+    now = utcnow()
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO practice_sessions 
+            (id, user_id, scenario_slug, docker_project_name, assigned_ports, status, started_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, 'running', ?, ?)
+            """,
+            (session_id, user_id, scenario_slug, docker_project_name, ports_str, now, expires_at)
+        )
+    return get_session_by_id(session_id) or {}
+
+def get_active_session(user_id: str, scenario_slug: str) -> Optional[Dict[str, Any]]:
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports,
+                   status, started_at, expires_at, ended_at
+            FROM practice_sessions
+            WHERE user_id = ? AND scenario_slug = ? AND status = 'running'
+            ORDER BY started_at DESC LIMIT 1
+            """,
+            (user_id, scenario_slug),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        session_dict = dict(row)
+        session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
+        return session_dict
+
+def get_session_by_id(session_id: str) -> Optional[Dict[str, Any]]:
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports,
+                   status, started_at, expires_at, ended_at
+            FROM practice_sessions
+            WHERE id = ?
+            """,
+            (session_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        session_dict = dict(row)
+        session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
+        return session_dict
+
+def update_session_status(session_id: str, status: str) -> Optional[Dict[str, Any]]:
+    terminal_statuses = {"completed", "stopped", "expired", "error"}
+    ended_at = utcnow() if status in terminal_statuses else None
+
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE practice_sessions
+            SET status = ?, ended_at = COALESCE(?, ended_at)
+            WHERE id = ?
+            """,
+            (status, ended_at, session_id),
+        )
+    return get_session_by_id(session_id)
+
+def get_expired_running_sessions() -> list[Dict[str, Any]]:
+    now_iso = utcnow()
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports,
+                   status, started_at, expires_at
+            FROM practice_sessions
+            WHERE status = 'running' AND expires_at <= ?
+            """,
+            (now_iso,),
+        )
+        rows = cursor.fetchall()
+        sessions = []
+        for row in rows:
+            session_dict = dict(row)
+            session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
+            sessions.append(session_dict)
+        return sessions
