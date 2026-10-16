@@ -25,6 +25,8 @@ from .storage import (
     get_student_module_progress,
     get_teacher_analytics as get_real_teacher_analytics,
     save_note,
+    get_consent,
+    save_consent,
 )
 from .auth import (
     get_current_user,
@@ -191,13 +193,21 @@ async def get_module_feedback(module_id: str, user_id: str, current_user: dict =
         "message": f"Vas por buen camino. Has completado {progress.get('checkpoints_completed', 0)} checkpoint(s). Continúa extrayendo evidencia."
     }
 
- 
 @app.post("/api/modules/{module_id}/surveys")
 @app.post("/api/surveys/responses")
 async def submit_survey_alt(module_id: str = "default", submission: SurveySubmission = None, payload: dict = None, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id") or payload.get("user_id", "demo-student")
+    
+    # Validar consentimiento informado
+    if not get_consent(user_id):
+        raise HTTPException(
+            status_code=403, 
+            detail="Debe aceptar el consentimiento informado antes de responder encuestas."
+        )
+
     if submission is None and payload is not None:
         sub = SurveySubmission(
-            student_id=payload.get("user_id", payload.get("student_id", "demo-student")),
+            student_id=user_id,
             module_id=payload.get("module_id", module_id),
             responses=payload.get("answers", payload.get("responses", {})),
             rating=payload.get("rating"),
@@ -299,6 +309,15 @@ async def submit_checkpoint(submission: CheckpointSubmission, current_user: dict
 
 @app.post("/api/surveys/submit")
 async def submit_survey(submission: SurveySubmission, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
+    
+    # Validar consentimiento informado
+    if not get_consent(user_id):
+        raise HTTPException(
+            status_code=403, 
+            detail="Debe aceptar el consentimiento informado antes de responder encuestas."
+        )
+        
     save_survey(submission)
     return {"status": "ok", "message": "Encuesta guardada exitosamente"}
 
@@ -361,3 +380,16 @@ async def handle_scenario_action(scenario_id: str, action: str, payload: Scenari
             status_code=400,
             detail=f"Acción no soportada: {act}. Usa 'start' o 'stop'."
         )
+        
+@app.get("/api/consent")
+async def check_consent(current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
+    consent = get_consent(user_id)
+    return {"accepted": consent is not None, "consent": consent}
+
+@app.post("/api/consent")
+async def submit_consent(payload: dict, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
+    version = payload.get("version", "1.0")
+    result = save_consent(user_id, version)
+    return {"status": "ok", **result}
