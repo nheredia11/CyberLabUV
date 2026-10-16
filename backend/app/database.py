@@ -9,6 +9,8 @@ from typing import Any, Iterator, Optional, Dict
 
 from .config import get_settings
 
+from pathlib import Path
+
 # Aseguramos que sea un objeto Path explícito
 DATABASE_PATH = Path(get_settings().database_path)
 
