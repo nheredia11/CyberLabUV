@@ -167,3 +167,27 @@ def save_note(payload: dict[str, Any]) -> dict[str, Any]:
         note_id = cur.lastrowid
         
     return {"id": note_id, **payload, "created_at": now}
+
+
+def save_consent(user_id: str, version: str = "1.0") -> dict[str, Any]:
+    init_db()
+    now = utcnow()
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO consents (user_id, accepted_at, version)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                accepted_at = excluded.accepted_at,
+                version = excluded.version
+            """,
+            (user_id, now, version)
+        )
+        conn.commit()
+    return {"user_id": user_id, "accepted": True, "accepted_at": now}
+
+def get_consent(user_id: str) -> dict[str, Any] | None:
+    init_db()
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT user_id, accepted_at, version FROM consents WHERE user_id = ?", (user_id,)).fetchone()
+        return dict(row) if row else None

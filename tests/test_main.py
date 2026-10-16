@@ -1,23 +1,50 @@
 from fastapi.testclient import TestClient
 from app.main import app
 from app.auth import create_session
+import os
 
-client = TestClient(app)
-
-def test_health_endpoint():
+def test_health_endpoint(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
 
-def test_storage_save_and_dashboard():
-    # Crear token válido para el estudiante de prueba
-    token = create_session("test_student_1", "student", "student@uv.edu.co")
-    headers = {"Authorization": f"Bearer {token}"}
-
-    # Verifica catálogo (público)
-    res_catalog = client.get("/api/modules")
-    assert res_catalog.status_code == 200
+def test_dev_login_roles(client):
+    os.environ["ENABLE_DEV_LOGIN"] = "true"
     
-    # Verifica dashboard con token de autorización
-    res_dash = client.get("/api/students/test_student_1/dashboard", headers=headers)
-    assert res_dash.status_code == 200
+    # Login teacher
+    res = client.post("/api/auth/dev-login?role=teacher")
+    assert res.status_code == 200
+    teacher_token = res.json()["token"]
+    
+    res_analytics = client.get("/api/teacher/analytics", headers={"Authorization": f"Bearer {teacher_token}"})
+    assert res_analytics.status_code == 200
+
+    # Login student
+    res_student = client.post("/api/auth/dev-login?role=student")
+    assert res_student.status_code == 200
+    student_token = res_student.json()["token"]
+
+    # Student pidiendo analytics -> 403
+    res_bad = client.get("/api/teacher/analytics", headers={"Authorization": f"Bearer {student_token}"})
+    assert res_bad.status_code == 403
+
+def test_student_isolation(client):
+    token_a = create_session("student_a", "student", "a@uv.edu.co")
+    res = client.get("/api/students/student_b/dashboard", headers={"Authorization": f"Bearer {token_a}"})
+    assert res.status_code == 403
+
+def test_report_pdf(client):
+    token = create_session("student_a", "student", "a@uv.edu.co")
+    res = client.get("/api/students/student_a/report.pdf", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/pdf"
+    assert res.content.startswith(b"%PDF")
+
+def test_forbidden_command(client):
+    token = create_session("student_a", "student", "a@uv.edu.co")
+    res = client.post(
+        "/api/scenarios/s01/command",
+        json={"user_id": "student_a", "scenario_id": "s01", "command": "nmap -p 22 localhost; cat /etc/passwd"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert res.status_code == 400
