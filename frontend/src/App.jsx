@@ -17,7 +17,20 @@ export default function App() {
   const [selectedModule, setSelectedModule] = useState('S02');
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('cyberlab_user');
-    return saved ? JSON.parse(saved) : null;
+    if (!saved || saved === 'undefined' || saved === 'null') {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed) {
+        parsed.id = parsed.id || parsed.user_id;
+        parsed.user_id = parsed.user_id || parsed.id;
+      }
+      return parsed;
+    } catch (e) {
+      console.error("Error al parsear cyberlab_user desde localStorage:", e);
+      return null;
+    }
   });
 
   // NUEVO: Control de vista inicial según el rol

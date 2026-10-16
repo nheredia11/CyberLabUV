@@ -22,4 +22,4 @@ cyberlab.db
 .vscode/
 .idea/
 dist/
-build/
+build/node_modules/
