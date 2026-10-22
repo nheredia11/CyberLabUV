@@ -8,6 +8,7 @@ services:
       - "8000:8000"
     environment:
       APP_ENV: development
+      ENABLE_DEV_LOGIN: "true"
       CYBERLAB_ROOT: /workspace
       CYBERLAB_DB: /workspace/data/cyberlabuv.sqlite3
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
