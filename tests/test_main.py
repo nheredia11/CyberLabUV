@@ -11,12 +11,23 @@ def test_health_endpoint(client):
 def test_dev_login_roles(client):
     os.environ["ENABLE_DEV_LOGIN"] = "true"
     
-    # Login teacher
-    res = client.post("/api/auth/dev-login?role=teacher")
+    # Usar el endpoint unificado /api/auth/login enviando el rol y correo en el payload
+    res = client.post(
+        "/api/auth/login",
+        json={"email": "docente@uv.edu.co", "role": "teacher", "name": "Profesor Test"}
+    )
     assert res.status_code == 200
-    teacher_token = res.json()["token"]
+    data = res.json()
+    assert data["role"] == "teacher"
+    assert data["user"]["role"] == "teacher"
     
-    res_analytics = client.get("/api/teacher/analytics", headers={"Authorization": f"Bearer {teacher_token}"})
+    # Capturamos el token correctamente de la respuesta
+    teacher_token = data.get("token")
+    
+    res_analytics = client.get(
+        "/api/teacher/analytics", 
+        headers={"Authorization": f"Bearer {teacher_token}"}
+    )
     assert res_analytics.status_code == 200
 
     # Login student

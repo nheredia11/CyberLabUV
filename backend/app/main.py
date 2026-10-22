@@ -17,7 +17,7 @@ from .schemas import (
     SurveySubmission,
     ScenarioActionRequest,
 )
-from .content import load_catalog, load_module
+from .content import load_catalog, load_module, load_all_modules
 from .storage import (
     save_checkpoint, 
     get_student_dashboard, 
@@ -37,7 +37,6 @@ from .auth import (
 from .scenario_runner import start_scenario_session, stop_scenario_session, run_scenario_command
 from .database import init_db, utcnow
 from .cleanup import start_cleanup_scheduler, cleanup_expired_sessions
-from .content import load_catalog, load_module, load_all_modules
 from .services import get_or_create_google_user
 from .config import get_settings
 from fastapi.responses import Response
@@ -49,7 +48,6 @@ logger = logging.getLogger("cyberlab")
 
 
 class ScenarioCommandRequest(BaseModel):
-    user_id: str
     scenario_id: str
     command: str
     
@@ -107,17 +105,29 @@ async def login_demo(payload: LoginDemoRequest):
     email = payload.email.lower().strip()
     user_id = email.split("@")[0] if email else "demo-user"
     
-    # Validar rol seguro basado en configuración de docentes
-    teacher_emails = [e.lower().strip() for e in getattr(settings, "teacher_emails", ["dev@uv.edu.co", "docente@uv.edu.co"])]
-    role = "teacher" if email in teacher_emails or "teacher" in email or "prof" in email else "student"
+    # REGLA DE SEGURIDAD: El rol se determina por backend según los correos docentes permitidos
+    configured_teachers = getattr(settings, "teacher_emails", ["dev@uv.edu.co", "docente@uv.edu.co"])
+    teacher_emails = [e.lower().strip() for e in configured_teachers]
+    
+    role = "teacher" if email in teacher_emails else "student"
+    name = payload.name or ("Docente Demo" if role == "teacher" else "Estudiante Demo")
     
     token = create_session(user_id=user_id, role=role, email=email)
+    user_data = {
+        "id": user_id,
+        "user_id": user_id,
+        "email": email,
+        "role": role,
+        "name": name,
+        "avatar": name[:2].upper()
+    }
     return {
         "status": "ok",
         "user_id": user_id,
         "email": email,
         "role": role,
         "token": token,
+        "user": user_data
     }
 
 
@@ -126,6 +136,14 @@ async def google_login(payload: GoogleLoginRequest):
     try:
         user_info = get_or_create_google_user(payload.credential)
         token = create_session(user_id=user_info["id"], role=user_info["role"], email=user_info["email"])
+        user_data = {
+            "id": user_info["id"],
+            "user_id": user_info["id"],
+            "email": user_info["email"],
+            "role": user_info["role"],
+            "name": user_info.get("name"),
+            "avatar": user_info.get("avatar")
+        }
         return {
             "status": "ok",
             "user_id": user_info["id"],
@@ -133,27 +151,21 @@ async def google_login(payload: GoogleLoginRequest):
             "role": user_info["role"],
             "token": token,
             "name": user_info.get("name"),
-            "avatar": user_info.get("avatar")
+            "avatar": user_info.get("avatar"),
+            "user": user_data
         }
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
-
-
+    
 @app.post("/api/auth/dev-login")
 async def dev_login(role: str = "teacher"):
     if not is_dev_login_enabled():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="El inicio de sesión de desarrollo está deshabilitado.",
-        )
-    user_id = "dev_user"
-    token = create_session(user_id=user_id, role=role, email="dev@uv.edu.co")
-    return {
-        "status": "ok",
-        "user_id": user_id,
-        "role": role,
-        "token": token,
-    }
+        raise HTTPException(status_code=403, detail="El login de desarrollo está deshabilitado.")
+    email = "dev@uv.edu.co" if role == "teacher" else "estudiante@uv.edu.co"
+    user_id = email.split("@")[0]
+    token = create_session(user_id=user_id, role=role, email=email)
+    user_data = {"id": user_id, "user_id": user_id, "email": email, "role": role, "name": "Dev User", "avatar": "DU"}
+    return {"status": "ok", "user_id": user_id, "role": role, "token": token, "user": user_data}
 
 
 @app.get("/api/modules", response_model=list[CatalogItem])
@@ -196,9 +208,8 @@ async def get_module_feedback(module_id: str, user_id: str, current_user: dict =
 @app.post("/api/modules/{module_id}/surveys")
 @app.post("/api/surveys/responses")
 async def submit_survey_alt(module_id: str = "default", submission: SurveySubmission = None, payload: dict = None, current_user: dict = Depends(get_current_user)):
-    user_id = current_user.get("user_id") or payload.get("user_id", "demo-student")
+    user_id = current_user.get("user_id")
     
-    # Validar consentimiento informado
     if not get_consent(user_id):
         raise HTTPException(
             status_code=403, 
@@ -215,6 +226,7 @@ async def submit_survey_alt(module_id: str = "default", submission: SurveySubmis
         )
     elif submission is not None:
         sub = submission
+        sub.student_id = user_id
         if not sub.module_id:
             sub.module_id = module_id
     else:
@@ -310,8 +322,8 @@ async def submit_checkpoint(submission: CheckpointSubmission, current_user: dict
 @app.post("/api/surveys/submit")
 async def submit_survey(submission: SurveySubmission, current_user: dict = Depends(get_current_user)):
     user_id = current_user.get("user_id")
+    submission.student_id = user_id
     
-    # Validar consentimiento informado
     if not get_consent(user_id):
         raise HTTPException(
             status_code=403, 
@@ -331,9 +343,10 @@ async def get_teacher_analytics(
 
 
 @app.post("/api/scenarios/{scenario_id}/command")
-async def handle_scenario_command(scenario_id: str, payload: ScenarioCommandRequest):
+async def handle_scenario_command(scenario_id: str, payload: ScenarioCommandRequest, current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("user_id")
     success, output = await run_scenario_command(
-        user_id=payload.user_id,
+        user_id=user_id,
         scenario_id=scenario_id,
         command=payload.command
     )
@@ -343,9 +356,9 @@ async def handle_scenario_command(scenario_id: str, payload: ScenarioCommandRequ
 
 
 @app.post("/api/scenarios/{scenario_id}/{action}")
-async def handle_scenario_action(scenario_id: str, action: str, payload: ScenarioActionRequest):
+async def handle_scenario_action(scenario_id: str, action: str, payload: ScenarioActionRequest, current_user: dict = Depends(get_current_user)):
     act = (payload.action or action).lower().strip()
-    user_id = payload.user_id
+    user_id = current_user.get("user_id")
 
     if act == "start":
         success, message, data = await start_scenario_session(

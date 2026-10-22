@@ -9,10 +9,8 @@ from typing import Any, Iterator, Optional, Dict
 
 from .config import get_settings
 
-from pathlib import Path
-
 # Aseguramos que sea un objeto Path explícito
-DATABASE_PATH = Path(get_settings().database_path)
+DATABASE_PATH = Path(get_settings().absolute_database_path if hasattr(get_settings(), 'absolute_database_path') else get_settings().database_path)
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -23,6 +21,20 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT UNIQUE NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('student','teacher')),
     avatar TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS consents (
+    user_id TEXT PRIMARY KEY,
+    accepted_at TEXT NOT NULL,
+    version TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    email TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
 
@@ -102,7 +114,7 @@ def utcnow() -> str:
 def connect() -> Iterator[sqlite3.Connection]:
     db_path = Path(DATABASE_PATH)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), timeout=15.0)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -110,13 +122,8 @@ def connect() -> Iterator[sqlite3.Connection]:
     finally:
         conn.close()
 
-def get_db_connection() -> sqlite3.Connection:
-    """Función de compatibilidad requerida por storage.py y otros módulos."""
-    db_path = Path(DATABASE_PATH)
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
-    return conn
+# Alias de compatibilidad requerido por storage.py y otros módulos
+get_db_connection = connect
 
 def init_db() -> None:
     with connect() as conn:
@@ -216,6 +223,104 @@ def update_session_status(session_id: str, status: str) -> Optional[Dict[str, An
     return get_session_by_id(session_id)
 
 def get_expired_running_sessions() -> list[Dict[str, Any]]:
+    now_iso = utcnow()
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports,
+                   status, started_at, expires_at
+            FROM practice_sessions
+            WHERE status = 'running' AND expires_at <= ?
+            """,
+            (now_iso,),
+        )
+        rows = cursor.fetchall()
+        sessions = []
+        for row in rows:
+            session_dict = dict(row)
+            session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
+            sessions.append(session_dict)
+        return sessions
+    
+def create_practice_session(
+    session_id: str,
+    user_id: str,
+    scenario_slug: str,
+    docker_project_name: str,
+    assigned_ports: Any,
+    expires_at: str,
+) -> dict[str, Any]:
+    """Crea o reemplaza una sesión de práctica persistente con UUID completo."""
+    ports_str = json.dumps(assigned_ports) if isinstance(assigned_ports, (dict, list)) else str(assigned_ports)
+    now = utcnow()
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO practice_sessions 
+            (id, user_id, scenario_slug, docker_project_name, assigned_ports, status, started_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, 'running', ?, ?)
+            """,
+            (session_id, user_id, scenario_slug, docker_project_name, ports_str, now, expires_at)
+        )
+    return get_session_by_id(session_id) or {}
+
+def get_active_session(user_id: str, scenario_slug: str) -> Optional[Dict[str, Any]]:
+    """Obtiene la sesión activa ('running') más reciente de un estudiante para un escenario."""
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports,
+                   status, started_at, expires_at, ended_at
+            FROM practice_sessions
+            WHERE user_id = ? AND scenario_slug = ? AND status = 'running'
+            ORDER BY started_at DESC LIMIT 1
+            """,
+            (user_id, scenario_slug),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        session_dict = dict(row)
+        session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
+        return session_dict
+
+def get_session_by_id(session_id: str) -> Optional[Dict[str, Any]]:
+    """Busca una sesión por su UUID completo."""
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, user_id, scenario_slug, docker_project_name, assigned_ports,
+                   status, started_at, expires_at, ended_at
+            FROM practice_sessions
+            WHERE id = ?
+            """,
+            (session_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        session_dict = dict(row)
+        session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
+        return session_dict
+
+def update_session_status(session_id: str, status: str) -> Optional[Dict[str, Any]]:
+    """Actualiza el estado de una sesión de práctica e inserta ended_at si es terminal."""
+    terminal_statuses = {"completed", "stopped", "expired", "error"}
+    ended_at = utcnow() if status in terminal_statuses else None
+
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE practice_sessions
+            SET status = ?, ended_at = COALESCE(?, ended_at)
+            WHERE id = ?
+            """,
+            (status, ended_at, session_id),
+        )
+    return get_session_by_id(session_id)
+
+def get_expired_running_sessions() -> list[Dict[str, Any]]:
+    """Obtiene todas las sesiones 'running' cuyo tiempo asignado ya expiró."""
     now_iso = utcnow()
     with connect() as conn:
         cursor = conn.execute(
