@@ -1,70 +1,62 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../lib/api.js';
+import api from '../lib/api';
 
-export default function ConsentModal({ userId, onConsentAccepted }) {
-  const [hasConsent, setHasConsent] = useState(true);
-  const [loading, setLoading] = useState(true);
+export default function ConsentModal({ onConsentAccepted }) {
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/consent', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('cyberlab_token')}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (!data.accepted) {
-          setHasConsent(false);
-        } else {
-          setHasConsent(true);
-          if (onConsentAccepted) onConsentAccepted();
-        }
-      })
-      .catch(() => setHasConsent(false))
-      .finally(() => setLoading(false));
+    checkConsent();
   }, []);
 
-  async function handleAccept() {
+  const checkConsent = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/consent', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('cyberlab_token')}`
-        },
-        body: JSON.stringify({ accepted: true, version: "1.0" })
-      });
-      if (res.ok) {
-        setHasConsent(true);
-        if (onConsentAccepted) onConsentAccepted();
+      const res = await api.get('/api/consent');
+      if (!res.data.accepted) {
+        setShow(true);
+      } else if (onConsentAccepted) {
+        onConsentAccepted();
       }
-    } catch (e) {
-      console.error("Error al guardar consentimiento", e);
+    } catch (err) {
+      console.error("Error al verificar consentimiento", err);
     }
-  }
+  };
 
-  if (loading || hasConsent) return null;
+  const handleAccept = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.post('/api/consent', { accepted: true, version: '1.0' });
+      setShow(false);
+      if (onConsentAccepted) onConsentAccepted();
+    } catch (err) {
+      setError("No se pudo registrar el consentimiento. Inténtalo de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-gray-900 border border-gray-800 p-6 text-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-6 text-slate-100 shadow-2xl">
         <h2 className="text-xl font-bold text-cyan-400 mb-3">Consentimiento Informado - CyberLabUV</h2>
-        <div className="space-y-3 text-sm text-gray-300 max-h-60 overflow-y-auto pr-2 mb-6">
-          <p><strong>Objetivo del estudio:</strong> Evaluar la efectividad pedagógica y técnica de la plataforma CyberLabUV en la enseñanza práctica de ciberseguridad.</p>
-          <p><strong>Datos que se guardan:</strong> Se recopilarán registros de progreso en checkpoints, interacciones en terminales de contenedores Docker y respuestas anónimas a encuestas Likert.</p>
-          <p><strong>Participación voluntaria:</strong> Su participación es completamente voluntaria y no afectará sus calificaciones académicas ordinarias.</p>
-          <p><strong>Derecho a retiro:</strong> Puede suspender su uso o retirar su participación en cualquier momento sin penalización alguna.</p>
+        <div className="text-sm text-slate-300 space-y-3 max-h-60 overflow-y-auto pr-2 mb-4 border-b border-slate-800 pb-3">
+          <p><strong>Objetivo del estudio:</strong> Evaluar la efectividad pedagógica y técnica del simulador académico de ciberseguridad CyberLabUV en entornos prácticos controlados.</p>
+          <p><strong>Datos que se guardan:</strong> Se registrarán únicamente los avances en los checkpoints de los laboratorios, marcas de tiempo de conexión y las respuestas anonimizadas a las encuestas de retroalimentación técnica y pedagógica.</p>
+          <p><strong>Participación voluntaria:</strong> Su participación es completamente voluntaria. Ninguna decisión académica está atada a su participación en este estudio piloto.</p>
+          <p><strong>Derecho a retirarse:</strong> Puede dejar de usar la plataforma o retirar sus datos en cualquier momento sin penalización alguna.</p>
         </div>
-        <div className="flex gap-3">
+        {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
+        <div className="flex justify-end space-x-3">
           <button
+            disabled={loading}
             onClick={handleAccept}
-            className="flex-1 rounded-xl bg-cyan-600 hover:bg-cyan-500 py-2.5 font-medium transition-colors"
+            className="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2 rounded-lg font-medium transition"
           >
-            Aceptar y Continuar
-          </button>
-          <button
-            onClick={() => alert("Debe aceptar el consentimiento para utilizar los módulos interactivos.")}
-            className="flex-1 rounded-xl bg-gray-800 hover:bg-gray-700 py-2.5 font-medium text-gray-400 transition-colors"
-          >
-            No aceptar
+            {loading ? "Guardando..." : "Aceptar y Continuar"}
           </button>
         </div>
       </div>

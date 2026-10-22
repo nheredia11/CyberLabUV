@@ -205,24 +205,20 @@ export function getStudentDashboard(userId) {
   });
 }
 
-export async function submitCheckpoint(studentId, moduleId, checkpointId, evidence, status = "done") {
-  // Ajustado para coincidir con @app.post("/api/checkpoints/submit") de main.py
-  const response = await fetch('/api/checkpoints/submit', {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CyberLab-Token": localStorage.getItem("cyberlab_token") || "",
-    },
-    body: JSON.stringify({
-      student_id: studentId,
-      module_id: moduleId, // Opcional, dependiendo de tu modelo de datos actual
-      checkpoint_id: checkpointId,
-      evidence: evidence,
-      status: status,
-    }),
+export function submitCheckpoint(studentId, moduleId, checkpointId, evidence, status = "done") {
+  const body = normalizeCheckpointPayload(moduleId, {
+    user_id: studentId,
+    student_id: studentId,
+    module_id: moduleId,
+    checkpoint_id: checkpointId,
+    evidence,
+    status,
   });
-  if (!response.ok) throw new Error("Error registrando el checkpoint");
-  return await response.json();
+
+  return request("/api/checkpoints/submit", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function submitSurvey(moduleId, payload) {
