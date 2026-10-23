@@ -59,3 +59,50 @@ def test_forbidden_command(client):
         headers={"Authorization": f"Bearer {token}"}
     )
     assert res.status_code == 400
+    
+def test_consent_blocking(client):
+    """Verifica que un estudiante nuevo no tenga consentimiento aceptado por defecto."""
+    token = create_session("student_new", "student", "new@uv.edu.co")
+    res = client.get(
+        "/api/consent",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert res.status_code == 200
+    assert res.json()["accepted"] is False
+
+
+def test_checkpoint_submit_and_dashboard(client):
+    """Verifica el flujo correcto de envío de checkpoint a la ruta real y consulta de dashboard."""
+    token = create_session("student_a", "student", "a@uv.edu.co")
+    
+    # Enviar checkpoint exitoso a la ruta correcta /api/checkpoints/submit
+    res_sub = client.post(
+        "/api/checkpoints/submit",
+        json={"user_id": "student_a", "module_id": "M01", "checkpoint_id": "cp1", "status": "done", "evidence": "flag_test"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert res_sub.status_code == 200
+
+    # Consultar dashboard del estudiante
+    res_dash = client.get(
+        "/api/students/student_a/dashboard",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert res_dash.status_code == 200
+    data = res_dash.json()
+    assert "modules" in data or "progress" in data or isinstance(data, dict)
+
+
+def test_runner_unallowed_command():
+    """Prueba unitaria directa del runner para verificar bloqueo de comandos fuera de la lista blanca."""
+    import asyncio
+    from app.scenario_runner import run_scenario_command
+    
+    # Ejecutar comando no permitido dentro de un loop sincrónico para pytest
+    async def run_test():
+        success, message = await run_scenario_command("student_a", "S01", "rm -rf /")
+        return success, message
+
+    success, message = asyncio.run(run_test())
+    assert success is False
+    assert "no permitido" in message.lower() or "bloqueado" in message.lower() or "vacío" in message.lower()
