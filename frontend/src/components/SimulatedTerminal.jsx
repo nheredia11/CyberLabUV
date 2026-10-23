@@ -1,25 +1,20 @@
 import { useState, useRef, useEffect } from "react";
+import { api } from "../lib/api";
 
 export default function SimulatedTerminal({ scenarioId }) {
   const [history, setHistory] = useState([
-    "Bienvenido a la terminal simulada de CyberLab.",
-    "Escribe 'help' para ver los comandos disponibles.",
+    "Bienvenido a la terminal interactiva de CyberLab.",
+    "Escribe un comando válido (ej. nmap, curl, help) o usa 'clear' para limpiar.",
   ]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
-  // Mocks de respuestas estáticas (¡Esto no consume recursos Docker!)
+  // Mocks de respaldo por si el backend está en modo seco (dry-run) o sin contenedor activo
   const MOCK_RESPONSES = {
     "S01": {
-      "nmap -sV recon-lab": `
-Starting Nmap 7.93 ( https://nmap.org )
-Nmap scan report for recon-lab (192.168.1.10)
-Host is up (0.00012s latency).
-Not shown: 999 closed tcp ports (reset)
-PORT     STATE SERVICE VERSION
-5000/tcp open  http    Werkzeug httpd 2.2.2 (Python 3.10.8)
-Nmap done: 1 IP address (1 host up) scanned in 6.42 seconds`,
-      "help": "Comandos permitidos en este escenario: nmap -sV recon-lab, clear",
+      "nmap -sV 10.10.10.20": `[SIMULADO] Starting Nmap 7.93...\nPORT   STATE SERVICE VERSION\n22/tcp open  ssh     OpenSSH 8.9\n80/tcp open  http    nginx 1.22`,
+      "help": "Comandos simulados disponibles: nmap -sV 10.10.10.20, curl http://localhost:8081, clear",
     }
   };
 
@@ -27,22 +22,39 @@ Nmap done: 1 IP address (1 host up) scanned in 6.42 seconds`,
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history]);
 
-  const handleCommand = (e) => {
-    if (e.key === "Enter") {
+  const handleCommand = async (e) => {
+    if (e.key === "Enter" && !loading) {
       const command = input.trim();
-      const newHistory = [...history, `cyberlab@student:~$ ${command}`];
-      
+      if (!command) return;
+
       if (command === "clear") {
         setHistory([]);
-      } else if (command) {
-        // Buscar si existe una respuesta mockeada para este escenario y comando
-        const scenarioMocks = MOCK_RESPONSES[scenarioId] || MOCK_RESPONSES["S01"];
-        const response = scenarioMocks[command] || "Comando no reconocido o no soportado en esta simulación. Prueba con 'help'.";
-        newHistory.push(response);
-        setHistory(newHistory);
+        setInput("");
+        return;
       }
-      
+
+      const newHistory = [...history, `cyberlab@student:~$ ${command}`];
+      setHistory(newHistory);
       setInput("");
+      setLoading(true);
+
+      try {
+        // Llamada real al backend protegido con token y sesión Docker
+        const res = await api.post(`/api/scenarios/${scenarioId}/command`, {
+          scenario_id: scenarioId,
+          command: command
+        });
+        
+        setHistory((prev) => [...prev, res.output || "Comando ejecutado con éxito."]);
+      } catch (err) {
+        console.warn("Fallo el comando en backend real, usando respaldo local:", err);
+        // Fallback a mocks locales si el contenedor no está activo
+        const scenarioMocks = MOCK_RESPONSES[scenarioId] || MOCK_RESPONSES["S01"];
+        const response = scenarioMocks[command] || (err.response?.data?.detail || "Comando no permitido o contenedor inactivo. Inicia el escenario primero.");
+        setHistory((prev) => [...prev, response]);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -52,6 +64,7 @@ Nmap done: 1 IP address (1 host up) scanned in 6.42 seconds`,
         {history.map((line, idx) => (
           <div key={idx}>{line}</div>
         ))}
+        {loading && <div style={{ color: "#ffff00" }}>Ejecutando en entorno aislado...</div>}
         <div ref={bottomRef} />
       </div>
       <div style={{ display: "flex", marginTop: "10px" }}>
@@ -61,6 +74,7 @@ Nmap done: 1 IP address (1 host up) scanned in 6.42 seconds`,
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleCommand}
+          disabled={loading}
           style={{ flex: 1, backgroundColor: "transparent", border: "none", color: "#00ff00", outline: "none", fontFamily: "monospace", fontSize: "16px" }}
           autoFocus
         />
