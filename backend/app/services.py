@@ -22,7 +22,6 @@ def get_or_create_google_user(credential: str) -> dict[str, Any]:
     if not settings.google_client_id:
         raise ValueError("GOOGLE_CLIENT_ID no está configurado en el backend.")
 
-    
     google_payload = id_token.verify_oauth2_token(
         credential,
         google_requests.Request(),
@@ -56,34 +55,32 @@ def get_or_create_google_user(credential: str) -> dict[str, Any]:
     user_id = hashlib.sha1(email.encode("utf-8")).hexdigest()[:12]
     avatar = "".join([part[0] for part in name.split()[:2]]).upper() or "UV"
 
-    # Si ya existe por ID, lo retornamos.
+    # REGLA ESTRICTA: El rol docente sale ÚNICAMENTE de settings.teacher_emails
+    teacher_emails = [e.lower().strip() for e in settings.teacher_emails]
+    role = "teacher" if email in teacher_emails else "student"
+
     with connect() as conn:
+        # Verificar si el usuario ya existe por ID o por correo
         row = conn.execute(
-            "SELECT id, name, email, role, avatar FROM users WHERE id = ?",
-            (user_id,),
+            "SELECT id, name, email, role, avatar FROM users WHERE id = ? OR lower(email) = lower(?)",
+            (user_id, email),
         ).fetchone()
 
         if row:
-            user = dict(row)
-            user["picture"] = picture
-            return user
+            existing = row_to_dict(row)
+            # Actualizar rol y datos vigentes en cada inicio de sesión
+            conn.execute(
+                "UPDATE users SET role = ?, name = ?, avatar = ? WHERE id = ?",
+                (role, name, avatar, existing["id"]),
+            )
+            conn.commit()
+            existing["role"] = role
+            existing["name"] = name
+            existing["avatar"] = avatar
+            existing["picture"] = picture
+            return existing
 
-        # Si ya existe por email, también lo retornamos.
-        row = conn.execute(
-            "SELECT id, name, email, role, avatar FROM users WHERE lower(email) = lower(?)",
-            (email,),
-        ).fetchone()
-
-        if row:
-            user = dict(row)
-            user["picture"] = picture
-            return user
-
-        # Para demo: si el correo contiene profesor/docente lo marcamos docente.
-        role = "teacher" if any(
-            marker in email for marker in ["prof", "docente", "teacher"]
-        ) else "student"
-
+        # Si no existe, se crea con el rol verificado
         conn.execute(
             """
             INSERT INTO users(id, name, email, role, avatar, created_at)
@@ -91,6 +88,7 @@ def get_or_create_google_user(credential: str) -> dict[str, Any]:
             """,
             (user_id, name, email, role, avatar, utcnow()),
         )
+        conn.commit()
 
     return {
         "id": user_id,
