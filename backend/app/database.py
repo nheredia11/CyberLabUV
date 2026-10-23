@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id TEXT NOT NULL,
     role TEXT NOT NULL,
     email TEXT NOT NULL,
+    expires_at TEXT,
     created_at TEXT NOT NULL
 );
 
@@ -128,10 +129,17 @@ get_db_connection = connect
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        # Migración defensiva: asegurar la columna expires_at en tablas existentes
+        try:
+            conn.execute("ALTER TABLE sessions ADD COLUMN expires_at TEXT")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # La columna ya existe, se ignora de forma segura
+
         for user in DEFAULT_USERS:
             conn.execute(
                 """INSERT OR IGNORE INTO users(id, name, email, role, avatar, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (user["id"], user["name"], user["email"], user["role"], user["avatar"], utcnow()),
             )
 
