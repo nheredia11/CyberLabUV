@@ -2,10 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /workspace
 
-# Instalar dependencias del sistema y el cliente de Docker CLI
+# Copiar Docker CLI y el plugin oficial de Docker Compose desde la imagen oficial de Docker
+COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker:27-cli /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins
+
+# Instalar dependencias del sistema mínimas (curl)
 RUN apt-get update && apt-get install -y \
     curl \
-    docker.io \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt /tmp/requirements.txt
