@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Activity,
-  ArrowRight,
-  CheckCircle2,
   GraduationCap,
   LockKeyhole,
   Moon,
@@ -54,8 +52,6 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
   const googleButtonRef = useRef(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  // Estado para guardar el rol temporal (Solo aplica para el entorno de desarrollo)
   const [selectedRole, setSelectedRole] = useState('student');
 
   const googleReady = isGoogleConfigured();
@@ -72,10 +68,17 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
         setError('');
 
         const result = await api.loginWithGoogle(response.credential);
-        
-        // CORRECCIÓN PRIORIDAD 1: Tomamos estrictamente el usuario y rol verificados por el backend.
-        // Se elimina la inyección manual ({ ...result.user, role: selectedRole })
-        const userData = result.user;
+        const userData = result.user || {
+          id: result.user_id,
+          email: result.email,
+          role: result.role,
+          name: result.name,
+          avatar: result.avatar
+        };
+
+        if (!userData || !result.token) {
+          throw new Error("Respuesta de autenticación inválida del servidor.");
+        }
 
         localStorage.setItem('cyberlab_user', JSON.stringify(userData));
         localStorage.setItem('cyberlab_token', result.token);
@@ -84,15 +87,12 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
         onLogin(userData);
       } catch (err) {
         console.error(err);
-        setError(
-          err.message ||
-            'No fue posible iniciar sesión. Verifica que estés usando tu cuenta institucional.'
-        );
+        setError(err.message || 'No fue posible iniciar sesión con Google.');
       } finally {
         setLoading(false);
       }
     };
-  }, [onLogin]); // Ya no depende de selectedRole, blindando el acceso.
+  }, [onLogin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,9 +100,7 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
     async function initGoogle() {
       try {
         if (!googleReady) return;
-
         await loadGoogleScript();
-
         if (cancelled) return;
 
         if (!window.google?.accounts?.id) {
@@ -117,13 +115,11 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
               window.__cyberlabGoogleLoginCallback?.(response);
             },
           });
-
           window.__cyberlabGoogleInitializedFor = GOOGLE_CLIENT_ID;
         }
 
         if (googleButtonRef.current) {
           googleButtonRef.current.innerHTML = '';
-
           window.google.accounts.id.renderButton(googleButtonRef.current, {
             theme: isDark ? 'filled_black' : 'outline',
             size: 'large',
@@ -150,18 +146,37 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
     setTheme?.(isDark ? 'light' : 'dark');
   }
 
-  // Función exclusiva para saltarse Google durante el desarrollo local
-  function handleDevLogin() {
-    const mockUser = {
-      id: selectedRole === 'teacher' ? 'profesor-local' : 'student-local-01',
-      email: selectedRole === 'teacher' ? 'profesor@correounivalle.edu.co' : 'estudiante@correounivalle.edu.co',
-      name: selectedRole === 'teacher' ? 'Profesor CyberLab' : 'Estudiante Demo',
-      role: selectedRole
-    };
-    
-    localStorage.setItem('cyberlab_user', JSON.stringify(mockUser));
-    localStorage.setItem('cyberlab_token', 'dev-token-secret');
-    onLogin(mockUser);
+  // Llamado real al backend para el login de desarrollo
+  async function handleDevLogin() {
+    try {
+      setLoading(true);
+      setError('');
+
+      const email = selectedRole === 'teacher' ? 'dev@uv.edu.co' : 'estudiante@uv.edu.co';
+      const result = await api.loginDemo({ email, role: selectedRole });
+
+      const userData = result.user || {
+        id: result.user_id,
+        email: result.email,
+        role: result.role,
+        name: email.split('@')[0],
+      };
+
+      if (!userData || !result.token) {
+        throw new Error("El backend no devolvió un token válido.");
+      }
+
+      localStorage.setItem('cyberlab_user', JSON.stringify(userData));
+      localStorage.setItem('cyberlab_token', result.token);
+      localStorage.setItem('cyberlab_session_token', result.token);
+
+      onLogin(userData);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'El login de desarrollo está deshabilitado o falló.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -176,7 +191,6 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
           <div className="login-logo-modern">
             <ShieldCheck size={38} />
           </div>
-
           <div>
             <strong>CyberLab</strong>
             <span>Simulador académico de ciberseguridad</span>
@@ -188,14 +202,8 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
             <GraduationCap size={16} />
             Plataforma académica
           </span>
-
-          <h1>
-            Aprende y evalúa ciberseguridad en entornos controlados
-          </h1>
-
-          <p>
-            Accede como estudiante para resolver escenarios prácticos o como docente para evaluar el desempeño y revisar evidencias cualitativas.
-          </p>
+          <h1>Aprende y evalúa ciberseguridad en entornos controlados</h1>
+          <p>Accede como estudiante para resolver escenarios prácticos o como docente para evaluar el desempeño y revisar evidencias cualitativas.</p>
         </div>
 
         <div className="login-feature-row">
@@ -203,12 +211,10 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
             <TerminalSquare size={19} />
             <span>Laboratorios Docker</span>
           </div>
-
           <div>
             <Activity size={19} />
             <span>Checkpoints y Evidencias</span>
           </div>
-
           <div>
             <ShieldCheck size={19} />
             <span>Acceso institucional</span>
@@ -222,7 +228,6 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
             <ShieldCheck size={14} />
             Universidad del Valle
           </span>
-
           <h2>Iniciar sesión</h2>
           <p>Ingresa con tu cuenta institucional para continuar.</p>
         </div>
@@ -234,10 +239,9 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
             <div className="google-pending-card modern" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ textAlign: 'center', marginBottom: '15px' }}>
                 <strong style={{ color: '#e3b341' }}>Modo Desarrollo Local ⚠️</strong>
-                <p>Google Auth no configurado. Selector de rol inseguro habilitado solo para pruebas.</p>
+                <p>Google Auth no configurado. Selector de rol habilitado para pruebas.</p>
               </div>
 
-              {/* Selector de Roles movido adentro del entorno inseguro */}
               <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', width: '100%', maxWidth: '360px', margin: '0 auto 20px auto' }}>
                 <button 
                   type="button"
@@ -283,9 +287,7 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
 
         <div className="login-bottom-note minimal" style={{ marginTop: '30px' }}>
           <LockKeyhole size={18} />
-          <p>
-            El acceso está restringido a usuarios autorizados de la Universidad del Valle.
-          </p>
+          <p>El acceso está restringido a usuarios autorizados de la Universidad del Valle.</p>
         </div>
       </section>
     </main>

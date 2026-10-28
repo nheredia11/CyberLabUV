@@ -15,25 +15,49 @@ export default function App() {
   const [theme, setTheme] = useState('dark');
   const [dashboard, setDashboard] = useState(null);
   const [selectedModule, setSelectedModule] = useState('S02');
+  
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('cyberlab_user');
-    return saved ? JSON.parse(saved) : null;
+    if (!saved || saved === 'undefined' || saved === 'null') {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed) {
+        parsed.id = parsed.id || parsed.user_id;
+        parsed.user_id = parsed.user_id || parsed.id;
+      }
+      return parsed;
+    } catch (e) {
+      console.error("Error al parsear cyberlab_user desde localStorage:", e);
+      return null;
+    }
   });
 
-  // NUEVO: Control de vista inicial según el rol
   const [view, setView] = useState(() => {
     if (user?.role === 'teacher') return 'teacher';
     return 'dashboard';
   });
 
-  const userId = user?.id || 'demo-student';
+  // ID seguro del usuario o null si no hay sesión
+  const userId = user?.id || user?.user_id || null;
 
-  const refreshDashboard = () =>
-    api.dashboard(userId).then(setDashboard).catch(console.error);
+  const refreshDashboard = () => {
+    if (!userId) return;
+    api.dashboard(userId).then(setDashboard).catch((err) => {
+      console.error("Error cargando dashboard:", err);
+      if (err.status === 401) {
+        // Si hay un 401 real, limpiamos la sesión expirada de forma limpia
+        handleLogout();
+      }
+    });
+  };
 
   function handleLogout() {
     localStorage.removeItem('cyberlab_user');
     localStorage.removeItem('cyberlab_token');
+    localStorage.removeItem('cyberlab_session_token');
+    localStorage.removeItem('auth_token');
     setUser(null);
     setDashboard(null);
     setView('dashboard');
@@ -44,12 +68,11 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (user) {
-      // Si el usuario acaba de iniciar sesión, forzamos la ruta según rol
+    if (user && userId) {
       setView(user.role === 'teacher' ? 'teacher' : 'dashboard');
       refreshDashboard();
     }
-  }, [user?.id, user?.role]); // Actualizado para reaccionar si cambia el rol
+  }, [userId, user?.role]);
 
   const titles = useMemo(() => ({
     dashboard: [
@@ -86,7 +109,7 @@ export default function App() {
     ],
   }), []);
 
-  if (!user) {
+  if (!user || !userId) {
     return <Login 
       onLogin={setUser}
       theme={theme}
@@ -103,7 +126,7 @@ export default function App() {
         setView={setView}
         theme={theme}
         setTheme={setTheme}
-        userRole={user.role} // Pasamos el rol al Sidebar para que oculte botones
+        userRole={user.role}
       />
 
       <main className="main">
@@ -114,7 +137,6 @@ export default function App() {
           onLogout={handleLogout}
         />
 
-        {/* --- VISTAS COMUNES / ESTUDIANTES --- */}
         {view === 'dashboard' && (
           <Dashboard
             data={dashboard}
@@ -146,10 +168,8 @@ export default function App() {
           />
         )}
         
-        {/* --- VISTA EXCLUSIVA DOCENTE --- */}
         {view === 'teacher' && user.role === 'teacher' && <TeacherAnalytics />}
 
-        {/* --- VISTAS ESTÁTICAS --- */}
         {view === 'resources' && <Resources />}
         {view === 'templates' && <Templates />}
         {view === 'quality' && <Quality />}

@@ -4,15 +4,6 @@ import {
   runTerminalCommand,
 } from "../lib/api";
 
-const LAB_URLS = {
-  M00: null,
-  S01: "http://127.0.0.1:8083",
-  S02: "http://127.0.0.1:8081",
-  S03: "http://127.0.0.1:8084",
-  S04: "http://127.0.0.1:8085",
-  S05: "http://127.0.0.1:8086",
-};
-
 const SAFE_COMMANDS = {
   S01: [
     "nmap -sV recon-lab",
@@ -84,14 +75,20 @@ export default function Practice({
 }) {
   const scenarioId = normalizeScenarioId(moduleId, moduleData);
   const userId = resolveUserId(user);
-  const labUrl = LAB_URLS[scenarioId];
 
+  const [dynamicLabUrl, setDynamicLabUrl] = useState(null);
   const [selectedCommand, setSelectedCommand] = useState(
     SAFE_COMMANDS[scenarioId]?.[0] || ""
   );
   const [customCommand, setCustomCommand] = useState("");
   const [loadingAction, setLoadingAction] = useState("");
   const [loadingCommand, setLoadingCommand] = useState(false);
+  
+  // Refrescar URL dinámica si cambia el escenario
+  useEffect(() => {
+    setDynamicLabUrl(null);
+    setSelectedCommand(SAFE_COMMANDS[scenarioId]?.[0] || "");
+  }, [scenarioId]);
   
   // Refactorizamos la salida para que sea un historial limpio de terminal
   const [outputHistory, setOutputHistory] = useState([
@@ -136,6 +133,14 @@ export default function Practice({
       // Extraemos solo el mensaje o salida limpia
       const cleanOutput = response.stdout || response.message || response.stderr || "Acción completada sin salida en consola.";
       appendToConsole(cleanOutput);
+
+      // Si se inició correctamente, guardamos la URL dinámica devuelta por el backend
+      if (action === "start" && response.local_url) {
+        setDynamicLabUrl(response.local_url);
+        appendToConsole(`🌐 URL del laboratorio activa: ${response.local_url}`);
+      } else if (action === "stop" || action === "reset") {
+        setDynamicLabUrl(null);
+      }
 
       if (onScenarioEvent) {
         onScenarioEvent(response);
@@ -182,7 +187,7 @@ export default function Practice({
     }
   }
 
-  if (!labUrl && scenarioId === "M00") {
+  if (scenarioId === "M00") {
     return (
       <section className="practice-shell">
         <div className="practice-hero">
@@ -252,17 +257,29 @@ export default function Practice({
             ))}
           </div>
 
-          {labUrl && (
-            <a
-              className="open-lab-button"
-              href={labUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={{ display: 'block', textAlign: 'center', padding: '10px', background: '#1f6feb', color: '#fff', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}
-            >
-              🌐 Abrir aplicación vulnerable
-            </a>
-          )}
+          <a
+            className="open-lab-button"
+            href={dynamicLabUrl || "#"}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => {
+              if (!dynamicLabUrl) e.preventDefault();
+            }}
+            style={{ 
+              display: 'block', 
+              textAlign: 'center', 
+              padding: '10px', 
+              background: dynamicLabUrl ? '#1f6feb' : '#21262d', 
+              color: dynamicLabUrl ? '#fff' : '#8b949e', 
+              textDecoration: 'none', 
+              borderRadius: '6px', 
+              fontWeight: 'bold',
+              pointerEvents: dynamicLabUrl ? 'auto' : 'none',
+              opacity: dynamicLabUrl ? 1 : 0.6
+            }}
+          >
+            {dynamicLabUrl ? "🌐 Abrir aplicación vulnerable" : "🔒 Inicia el escenario para abrir"}
+          </a>
         </article>
 
         {/* PANEL DE COMANDOS */}

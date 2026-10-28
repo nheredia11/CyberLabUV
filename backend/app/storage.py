@@ -11,8 +11,18 @@ logger = logging.getLogger("cyberlab")
 
 
 def save_checkpoint(submission: CheckpointSubmission) -> dict[str, Any]:
-    now = utcnow()
     module_id = getattr(submission, "module_id", "default")
+    
+    # 🛡️ Validación estricta para integridad de tesis (Bloque 2)
+    mod = load_module(module_id)
+    if not mod:
+        raise ValueError(f"Módulo no encontrado: {module_id}")
+    
+    valid_cp_ids = {cp.id for cp in (mod.checkpoints or [])}
+    if submission.checkpoint_id not in valid_cp_ids:
+        raise ValueError(f"Checkpoint inválido '{submission.checkpoint_id}' para el módulo {module_id}")
+
+    now = utcnow()
     user_id = getattr(submission, "user_id", getattr(submission, "student_id", "demo-student"))
     status = getattr(submission, "status", "done")
     evidence = getattr(submission, "evidence", "")
@@ -167,3 +177,27 @@ def save_note(payload: dict[str, Any]) -> dict[str, Any]:
         note_id = cur.lastrowid
         
     return {"id": note_id, **payload, "created_at": now}
+
+
+def save_consent(user_id: str, version: str = "1.0") -> dict[str, Any]:
+    init_db()
+    now = utcnow()
+    with get_db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO consents (user_id, accepted_at, version)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                accepted_at = excluded.accepted_at,
+                version = excluded.version
+            """,
+            (user_id, now, version)
+        )
+        conn.commit()
+    return {"user_id": user_id, "accepted": True, "accepted_at": now}
+
+def get_consent(user_id: str) -> dict[str, Any] | None:
+    init_db()
+    with get_db_connection() as conn:
+        row = conn.execute("SELECT user_id, accepted_at, version FROM consents WHERE user_id = ?", (user_id,)).fetchone()
+        return dict(row) if row else None

@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   backend:
     build:
@@ -8,14 +10,19 @@ services:
       - "8000:8000"
     environment:
       APP_ENV: development
+      ENABLE_DEV_LOGIN: "true"
+      ALLOW_SCENARIO_COMMANDS: "true"
       CYBERLAB_ROOT: /workspace
       CYBERLAB_DB: /workspace/data/cyberlabuv.sqlite3
+      DATABASE_PATH: data/cyberlabuv.sqlite3
+      TEACHER_EMAILS: dev@uv.edu.co,docente@uv.edu.co
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_ALLOWED_DOMAINS: correounivalle.edu.co,univalle.edu.co,uv.edu.co
     volumes:
       - ./:/workspace
-    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 
 
   frontend:
     build:

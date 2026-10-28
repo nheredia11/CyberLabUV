@@ -110,7 +110,7 @@ class SurveySubmission(BaseModel):
 
 
 class ScenarioActionRequest(BaseModel):
-    user_id: str
+    user_id: str | None = Field(None, validation_alias=AliasChoices("user_id", "student_id"))
     action: str | None = None
 
     model_config = {"populate_by_name": True}

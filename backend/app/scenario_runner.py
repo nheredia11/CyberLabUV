@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import shlex
 import socket
 import uuid
 from dataclasses import dataclass
@@ -13,6 +14,8 @@ from .database import (
     create_practice_session,
     get_active_session,
     update_session_status,
+    connect,
+    utcnow,
 )
 
 
@@ -23,8 +26,8 @@ class ScenarioDefinition:
     compose_file: str
     description: str
     default_port: int
-    env_port_var: str          # Variable de entorno que usa el docker-compose
-    attacker_service: str      # Nombre del servicio atacante (si se necesita)
+    env_port_var: str         # Variable de entorno que usa el docker-compose
+    attacker_service: str     # Nombre del servicio atacante
 
 
 SCENARIOS: Dict[str, ScenarioDefinition] = {
@@ -53,7 +56,7 @@ SCENARIOS: Dict[str, ScenarioDefinition] = {
         description="Aplicación web vulnerable OWASP",
         default_port=8084,
         env_port_var="OWASP_PORT",
-        attacker_service="owasp-attacker",
+        attacker_service="web_owasp-attacker",  # Corregido a web_owasp-attacker
     ),
     "S04": ScenarioDefinition(
         module_id="S04",
@@ -175,12 +178,20 @@ async def start_scenario_session(
         cmd, cwd=settings.root_dir, env=env
     )
 
-    if returncode != 0:
-        return False, f"Error al desplegar el escenario: {stderr[-600:]}", {}
+    status_event = "ok" if returncode == 0 else "error"
+    message_event = "Escenario desplegado correctamente" if returncode == 0 else f"Error al desplegar: {stderr[-600:]}"
 
-    # Guardar sesión en la base de datos
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO scenario_events(user_id, scenario_id, action, status, message, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, normalized_id, "start", status_event, message_event, utcnow()),
+        )
+
+    if returncode != 0:
+        return False, message_event, {}
+
     assigned_ports = {"web": allocated_port}
-    session_data = create_practice_session(
+    create_practice_session(
         user_id=user_id,
         scenario_slug=scenario.slug,
         docker_project_name=project_name,
@@ -228,8 +239,15 @@ async def stop_scenario_session(
         cmd, cwd=settings.root_dir
     )
 
-    # Actualizamos el estado aunque falle el down (para no dejar basura en BD)
     update_session_status(active["id"], "stopped")
+    status_event = "ok" if returncode == 0 else "error"
+    msg = "Sesión detenida correctamente" if returncode == 0 else f"Problemas al limpiar: {stderr[-400:]}"
+
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO scenario_events(user_id, scenario_id, action, status, message, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, normalized_id, "stop", status_event, msg, utcnow()),
+        )
 
     if returncode == 0:
         return True, "Sesión y contenedores detenidos correctamente"
@@ -237,16 +255,14 @@ async def stop_scenario_session(
     return False, f"Se marcó como detenida, pero hubo problemas al limpiar contenedores: {stderr[-400:]}"
 
 
-# Mantener compatibilidad con el código antiguo (si todavía se usa)
 async def run_scenario_action(scenario_id: str, action: str, user_id: str = "anonymous") -> Tuple[bool, int | None, str, str, str]:
-    """
-    Función de compatibilidad.
-    """
-    if action.lower() == "start":
-        success, message, data = await start_scenario_session(user_id, scenario_id)
+    """Función de compatibilidad."""
+    act = action.lower()
+    if act == "start":
+        success, message, _ = await start_scenario_session(user_id, scenario_id)
         return success, 0 if success else 1, "", "", message
 
-    if action.lower() in ("stop", "down"):
+    if act in ("stop", "down"):
         success, message = await stop_scenario_session(user_id, scenario_id)
         return success, 0 if success else 1, "", "", message
 
@@ -261,14 +277,6 @@ ALLOWED_COMMANDS = {
 
 FORBIDDEN_CHARS = {";", "|", "&", "$", "`", ">", "<"}
 
-async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> Tuple[bool, str]:
-    if any(char in command for char in FORBIDDEN_CHARS):
-        return False, "Comando rechazado: contiene caracteres prohibidos por motivos de seguridad."
-    
-    parts = command.strip().split()
-    if not parts or parts[0].lower() not in ALLOWED_COMMANDS:
-        return False, f"Comando no permitido o vacío."
-
 
 async def run_scenario_command(
     user_id: str,
@@ -277,6 +285,7 @@ async def run_scenario_command(
 ) -> Tuple[bool, str]:
     """
     Ejecuta un comando permitido dentro del contenedor atacante de la sesión activa del estudiante.
+    Valida longitud, lista blanca con shlex, y registra en terminal_commands.
     """
     settings = get_settings()
     normalized_id = scenario_id.upper()
@@ -284,23 +293,40 @@ async def run_scenario_command(
     if not scenario:
         return False, f"Escenario {scenario_id} no encontrado"
 
-    active = get_active_session(user_id, scenario.slug)
-    if not active:
-        return False, "No hay una sesión activa para este escenario. Inícialo primero."
+    # Validar longitud máxima de comando
+    if not command or len(command.strip()) > 300:
+        return False, "Comando vacío o excede la longitud máxima permitida (300 caracteres)."
 
-    parts = command.strip().split()
+    if any(char in command for char in FORBIDDEN_CHARS):
+        return False, "Comando rechazado: contiene caracteres prohibidos por motivos de seguridad."
+
+    try:
+        parts = shlex.split(command.strip())
+    except ValueError as e:
+        return False, f"Error al parsear el comando: {e}"
+
     if not parts:
-        return False, "Comando vacío"
+        return False, "Comando vacío."
 
     base_cmd = parts[0].lower()
     if base_cmd not in ALLOWED_COMMANDS:
-        return False, f"Comando '{base_cmd}' no permitido por la política de seguridad del simulador."
+        status_val = "blocked"
+        output_msg = f"Comando '{base_cmd}' no permitido por la política de seguridad del simulador."
+        with connect() as conn:
+            conn.execute(
+                "INSERT INTO terminal_commands(user_id, scenario_id, command, status, output, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, normalized_id, command.strip(), status_val, output_msg, utcnow()),
+            )
+        return False, output_msg
+
+    active = get_active_session(user_id, scenario.slug)
+    if not active:
+        return False, "No hay una sesión activa para este escenario. Inícialo primero."
 
     project_name = active["docker_project_name"]
     compose_path = settings.root_dir / scenario.compose_file
     service_name = scenario.attacker_service
 
-    # Ejecutar docker compose exec dentro del contenedor específico de la sesión
     cmd = [
         "docker", "compose",
         "-p", project_name,
@@ -311,6 +337,19 @@ async def run_scenario_command(
     returncode, stdout, stderr = await _run_cmd_async(cmd, cwd=settings.root_dir, timeout=30)
 
     if returncode != 0:
-        return False, f"Error ejecutando comando: {stderr or stdout}"
+        output_msg = f"Error ejecutando comando: {stderr or stdout}"
+        status_val = "error"
+    else:
+        output_msg = stdout
+        status_val = "ok"
+
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO terminal_commands(user_id, scenario_id, command, status, output, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, normalized_id, command.strip(), status_val, output_msg, utcnow()),
+        )
+
+    if returncode != 0:
+        return False, output_msg
 
     return True, stdout
