@@ -11,8 +11,18 @@ logger = logging.getLogger("cyberlab")
 
 
 def save_checkpoint(submission: CheckpointSubmission) -> dict[str, Any]:
-    now = utcnow()
     module_id = getattr(submission, "module_id", "default")
+    
+    # 🛡️ Validación estricta para integridad de tesis (Bloque 2)
+    mod = load_module(module_id)
+    if not mod:
+        raise ValueError(f"Módulo no encontrado: {module_id}")
+    
+    valid_cp_ids = {cp.id for cp in (mod.checkpoints or [])}
+    if submission.checkpoint_id not in valid_cp_ids:
+        raise ValueError(f"Checkpoint inválido '{submission.checkpoint_id}' para el módulo {module_id}")
+
+    now = utcnow()
     user_id = getattr(submission, "user_id", getattr(submission, "student_id", "demo-student"))
     status = getattr(submission, "status", "done")
     evidence = getattr(submission, "evidence", "")
