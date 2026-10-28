@@ -158,13 +158,13 @@ def loads(value: str | None, default: Any = None) -> Any:
     return json.loads(value)
 
 def create_practice_session(
-    session_id: str,
-    user_id: str,
-    scenario_slug: str,
-    docker_project_name: str,
-    assigned_ports: Any,
-    expires_at: str,
-) -> dict[str, Any]:
+    session_id: str, 
+    user_id: str, 
+    scenario_slug: str, 
+    project_name: str, 
+    assigned_ports: Dict[str, int] | str,
+    expires_at: str
+) -> Dict[str, Any]:
     ports_str = json.dumps(assigned_ports) if isinstance(assigned_ports, (dict, list)) else str(assigned_ports)
     now = utcnow()
     with connect() as conn:
@@ -174,7 +174,7 @@ def create_practice_session(
             (id, user_id, scenario_slug, docker_project_name, assigned_ports, status, started_at, expires_at)
             VALUES (?, ?, ?, ?, ?, 'running', ?, ?)
             """,
-            (session_id, user_id, scenario_slug, docker_project_name, ports_str, now, expires_at)
+            (session_id, user_id, scenario_slug, project_name, ports_str, now, expires_at)
         )
     return get_session_by_id(session_id) or {}
 
