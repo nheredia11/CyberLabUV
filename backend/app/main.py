@@ -425,7 +425,11 @@ async def submit_checkpoint(submission: CheckpointSubmission, current_user: dict
     if current_user.get("role") != "teacher":
         submission.student_id = token_user_id
 
-    result = save_checkpoint(submission)
+    try:
+        result = save_checkpoint(submission)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+        
     return {"status": "ok", "result": result}
 
 

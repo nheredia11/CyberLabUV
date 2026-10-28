@@ -75,10 +75,10 @@ def test_checkpoint_submit_and_dashboard(client):
     """Verifica el flujo correcto de envío de checkpoint a la ruta real y consulta de dashboard."""
     token = create_session("student_a", "student", "a@uv.edu.co")
     
-    # Enviar checkpoint exitoso a la ruta correcta /api/checkpoints/submit
+    # Enviar checkpoint exitoso usando un módulo y checkpoint reales (S01 y s01-cp1)
     res_sub = client.post(
         "/api/checkpoints/submit",
-        json={"user_id": "student_a", "module_id": "M01", "checkpoint_id": "cp1", "status": "done", "evidence": "flag_test"},
+        json={"user_id": "student_a", "module_id": "S01", "checkpoint_id": "s01-cp1", "status": "done", "evidence": "flag_test"},
         headers={"Authorization": f"Bearer {token}"}
     )
     assert res_sub.status_code == 200
