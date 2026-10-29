@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import os
 import json
 import logging
 from typing import Any
@@ -203,7 +205,8 @@ def get_consent(user_id: str) -> dict[str, Any] | None:
         return dict(row) if row else None
     
 def get_pilot_export_data() -> list[dict[str, Any]]:
-    """Extrae datos consolidados de checkpoints y encuestas para el análisis estadístico del piloto."""
+    """Extrae datos consolidados, anonimizados y con marcas temporales para el análisis estadístico del piloto (OE4)."""
+    salt = os.getenv("PILOT_SALT", "cyberlab-default-salt")
     with get_db_connection() as conn:
         cursor = conn.execute("""
             SELECT 
@@ -211,12 +214,25 @@ def get_pilot_export_data() -> list[dict[str, Any]]:
                 cs.module_id,
                 cs.checkpoint_id,
                 cs.status as checkpoint_status,
-                cs.evidence,
-                cs.updated_at,
+                MIN(cs.created_at) as first_activity,
+                MAX(cs.updated_at) as last_activity,
                 s.rating,
                 s.comments,
                 s.answers_json
             FROM checkpoint_submissions cs
             LEFT JOIN surveys s ON cs.user_id = s.user_id AND cs.module_id = s.module_id
+            GROUP BY cs.user_id, cs.module_id, cs.checkpoint_id
         """)
-        return [dict(row) for row in cursor.fetchall()]
+        rows = cursor.fetchall()
+        
+    export_list = []
+    for row in rows:
+        d = dict(row)
+        # Anonimizar user_id con SHA-256 + Salt
+        raw_uid = d.get("user_id") or "unknown"
+        hashed_uid = hashlib.sha256(f"{raw_uid}:{salt}".encode("utf-8")).hexdigest()[:16]
+        d["user_id"] = hashed_uid
+        # Excluir texto libre de evidencias por privacidad
+        d.pop("evidence", None)
+        export_list.append(d)
+    return export_list
