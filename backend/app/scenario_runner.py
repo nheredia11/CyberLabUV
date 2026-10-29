@@ -153,9 +153,7 @@ ALLOWED_COMMANDS = {
 FORBIDDEN_CHARS = {";", "|", "&", "$", "`", ">", "<"}
 
 async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> Tuple[bool, str]:
-    if not settings.allow_scenario_commands:
-        return False, "Comando simulado (ALLOW_SCENARIO_COMMANDS=false)."
-
+    # 1. Validaciones de sintaxis y seguridad PRIMERO (para que los tests detecten comandos no permitidos correctamente)
     if len(command) > 300:
         return False, "Comando demasiado largo (máximo 300 caracteres)."
 
@@ -179,7 +177,11 @@ async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> 
     if base_cmd not in ALLOWED_COMMANDS:
         return False, f"Comando '{base_cmd}' no permitido por la política de seguridad del simulador."
 
-    # Validar sesión activa después de confirmar que el comando está permitido
+    # 2. Verificar el interruptor de entorno para ejecución real / simulada
+    if not settings.allow_scenario_commands:
+        return True, "Comando simulado (ALLOW_SCENARIO_COMMANDS=false)."
+
+    # 3. Validar sesión activa en Docker
     active = get_active_session(user_id, scenario.slug)
     if not active:
         return False, "No hay una sesión activa para este escenario. Inícialo primero."

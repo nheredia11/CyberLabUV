@@ -3,11 +3,19 @@ from __future__ import annotations
 import logging
 import asyncio
 import csv
+import io
 from typing import Any
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.responses import Response, JSONResponse
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
+
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 from .schemas import (
     GoogleLoginRequest,
@@ -43,13 +51,6 @@ from .database import init_db, utcnow
 from .cleanup import start_cleanup_scheduler, cleanup_expired_sessions
 from .services import get_or_create_google_user
 from .config import get_settings
-
-from fastapi.responses import Response, JSONResponse
-import io
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
 
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
@@ -88,7 +89,6 @@ app = FastAPI(
     openapi_url=None if is_prod else "/openapi.json",
 )
 
-# Asegurar compatibilidad si cors_origins viene como string separado por comas o lista
 cors_origins = getattr(settings, "cors_origins", ["http://localhost:5173", "http://127.0.0.1:5173"])
 if isinstance(cors_origins, str):
     cors_origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
@@ -97,8 +97,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -112,8 +112,7 @@ async def get_users(role: str = "", current_user: dict = Depends(get_current_use
         {"user_id": "6472bc6ba01d", "email": "estudiante@uv.edu.co", "role": "student"},
         {"user_id": "dev_user", "email": "dev@uv.edu.co", "role": "teacher"}
     ]
-    
-   
+
 @app.post("/api/auth/login")
 async def login_demo(payload: LoginDemoRequest):
     if not is_dev_login_enabled():
@@ -123,7 +122,6 @@ async def login_demo(payload: LoginDemoRequest):
     email = payload.email.lower().strip()
     user_id = email.split("@")[0] if email else "demo-user"
     
-    # REGLA DE SEGURIDAD: El rol se determina por backend según los correos docentes permitidos
     configured_teachers = getattr(settings, "teacher_emails", ["dev@uv.edu.co", "docente@uv.edu.co"])
     teacher_emails = [e.lower().strip() for e in configured_teachers]
     
@@ -173,8 +171,9 @@ async def google_login(payload: GoogleLoginRequest):
             "user": user_data
         }
     except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
-    
+        logger.exception("Error durante la autenticación con Google: %s", e)
+        raise HTTPException(status_code=401, detail="Error de autenticación con Google.")
+
 @app.post("/api/auth/dev-login")
 async def dev_login(role: str = "teacher"):
     if not is_dev_login_enabled():
@@ -207,7 +206,7 @@ async def get_module(module_id: str):
             status_code=404, detail=f"Módulo {module_id} no encontrado"
         )
     return detail
-    
+
 @app.get("/api/modules/{module_id}/feedback")
 async def get_module_feedback(module_id: str, user_id: str, current_user: dict = Depends(get_current_user)) -> dict[str, str]:
     if current_user.get("role") != "teacher" and current_user.get("user_id") != user_id:
@@ -277,11 +276,10 @@ async def export_teacher_csv(teacher: dict[str, Any] = Depends(require_teacher_r
     output = io.StringIO()
     writer = csv.writer(output)
     
-    # Cabeceras del reporte CSV para la tesis
     writer.writerow([
         "user_id", "module_id", "checkpoint_id", 
-        "checkpoint_status", "evidence", "rating", 
-        "comments", "answers_json", "updated_at"
+        "checkpoint_status", "first_activity", "last_activity",
+        "rating", "comments", "answers_json"
     ])
     
     for row in data:
@@ -290,11 +288,11 @@ async def export_teacher_csv(teacher: dict[str, Any] = Depends(require_teacher_r
             row.get("module_id"),
             row.get("checkpoint_id"),
             row.get("checkpoint_status"),
-            row.get("evidence"),
+            row.get("first_activity"),
+            row.get("last_activity"),
             row.get("rating"),
             row.get("comments"),
-            row.get("answers_json"),
-            row.get("updated_at")
+            row.get("answers_json")
         ])
     
     output.seek(0)
@@ -338,7 +336,7 @@ async def get_student_report(student_id: str, current_user: dict = Depends(get_c
         "dashboard": dashboard,
         "modules": [m.model_dump() for m in all_modules]
     }
-    
+
 @app.get("/api/students/{student_id}/report.pdf")
 async def get_student_report_pdf(student_id: str, current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "teacher" and current_user.get("user_id") != student_id:
@@ -390,12 +388,10 @@ async def get_student_report_pdf(student_id: str, current_user: dict = Depends(g
 
     story = []
 
-    # Encabezado institucional
     story.append(Paragraph("CyberLabUV — Reporte Académico de Evidencias", title_style))
     story.append(Paragraph(f"<b>Estudiante ID:</b> {student_id} | <b>Fecha de Generación:</b> {utcnow()[:10]}", subtitle_style))
     story.append(Spacer(1, 10))
 
-    # Resumen general
     story.append(Paragraph("1. Resumen de Progreso General", heading_style))
     progress_pct = dashboard.get('progress_percent', 0.0) if dashboard else 0.0
     completed_mods = dashboard.get('completed_modules_count', 0) if dashboard else 0
@@ -418,7 +414,6 @@ async def get_student_report_pdf(student_id: str, current_user: dict = Depends(g
     story.append(t_summary)
     story.append(Spacer(1, 15))
 
-    # Detalle de Checkpoints por Módulo
     story.append(Paragraph("2. Detalle de Checkpoints y Competencias", heading_style))
     
     cp_rows = [[Paragraph("<b>Módulo / Checkpoint ID</b>", body_style), Paragraph("<b>Estado</b>", body_style), Paragraph("<b>Nivel Competencia</b>", body_style)]]
@@ -470,6 +465,9 @@ async def submit_checkpoint(submission: CheckpointSubmission, current_user: dict
         result = save_checkpoint(submission)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.exception("Error interno al registrar checkpoint: %s", e)
+        raise HTTPException(status_code=500, detail="Error interno al procesar el checkpoint.")
         
     return {"status": "ok", "result": result}
 
@@ -591,6 +589,7 @@ async def add_security_headers(request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
     if request.url.path.startswith("/api"):
         response.headers["Cache-Control"] = "no-store"
     return response
