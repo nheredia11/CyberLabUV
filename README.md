@@ -1,20 +1,14 @@
-```markdown
 # CyberLabUV: Simulador Ciberseguridad Interactivo Basado en Contenedores
 
 > **Trabajo de Grado / Tesis de Pregrado**  
 > **Fecha de Sustentación:** 9 de noviembre de 2026  
 > **Institución:** Universidad del Valle (UV)  
-> **Espacio de Investigación:** 📓 [Cyber NDH](https://gemini.google.com/notebook/37f6661e-22ee-42c4-90f0-e3a88893c250)
-
----
 
 ## 📋 Descripción del Proyecto
 
 **CyberLabUV** es una plataforma educativa de ciberseguridad basada en microservicios contenerizados (Docker). Su objetivo principal es ofrecer un entorno de prácticas controlado, seguro y reproducible donde estudiantes de ingeniería puedan ejecutar laboratorios prácticos de reconocimiento de red, análisis de autenticación HTTP/servicios y mitigación de vulnerabilidades (OWASP Top 10), alineado con marcos de referencia internacionales como **MITRE ATT&CK**, **NIST CSF** y **ASVS 4.0.3**.
 
 La arquitectura está compuesta por un backend robusto en **FastAPI**, una interfaz moderna y reactiva en **React / Vite**, persistencia relacional en **SQLite** y un motor dinámico de orquestación mediante **Docker Compose v2**.
-
----
 
 ## 🛠️ Stack Tecnológico
 
@@ -120,8 +114,6 @@ docker compose ls
 * **Permisos de `docker.sock**`:
 * Asegúrate de que Docker Desktop permita la comunicación mediante el socket en entornos WSL.
 
-
-
 ---
 
 ## 📂 Estructura del Repositorio
@@ -142,7 +134,3 @@ CyberLabUV/
 ## 📄 Licencia y Autoría
 
 Desarrollado para optar al título de Ingeniería de Sistemas en la **Universidad del Valle**. Todos los derechos reservados © 2026.
-
-```
-
-```
