@@ -26,7 +26,7 @@ services:
 
   auth_services-attacker:
     image: alpine:3.21
-    command: sh -c "apk add --no-cache nmap curl hydra openssh-client lftp && tail -f /dev/null"
+    command: sh -c "apk add --no-cache nmap curl bind-tools hydra openssh-client lftp && tail -f /dev/null"
     networks:
       - auth_services_net
     depends_on:

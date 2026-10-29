@@ -26,7 +26,7 @@ services:
 
   mitm-attacker:
     image: alpine:3.21
-    command: sh -c "apk add --no-cache nmap curl dsniff tcpdump && tail -f /dev/null"
+    command: sh -c "apk add --no-cache nmap curl bind-tools dsniff tcpdump && tail -f /dev/null"
     cap_add:
       - NET_ADMIN
       - NET_RAW

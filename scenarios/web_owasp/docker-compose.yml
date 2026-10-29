@@ -26,7 +26,7 @@ services:
 
   web_owasp-attacker:
     image: alpine:3.21
-    command: tail -f /dev/null
+    command: sh -c "apk add --no-cache nmap curl bind-tools && tail -f /dev/null"
     networks:
       - web_owasp_net
     depends_on:
