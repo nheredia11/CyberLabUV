@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import asyncio
+import csv
 from typing import Any
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +28,7 @@ from .storage import (
     save_note,
     get_consent,
     save_consent,
+    get_pilot_export_data,
 )
 from .auth import (
     get_current_user,
@@ -42,7 +44,7 @@ from .cleanup import start_cleanup_scheduler, cleanup_expired_sessions
 from .services import get_or_create_google_user
 from .config import get_settings
 
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -76,9 +78,14 @@ async def lifespan(app: FastAPI):
         pass
 
 
+is_prod = getattr(settings, "app_env", "development").lower() == "production"
+
 app = FastAPI(
     title="CyberLabUV API",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url=None if is_prod else "/docs",
+    redoc_url=None if is_prod else "/redoc",
+    openapi_url=None if is_prod else "/openapi.json",
 )
 
 # Asegurar compatibilidad si cors_origins viene como string separado por comas o lista
@@ -262,6 +269,40 @@ async def create_teacher_note(payload: dict, teacher: dict[str, Any] = Depends(r
     }
     saved = save_note(note_data)
     return {"status": "ok", "message": "Nota guardada exitosamente", "note": saved}
+
+@app.get("/api/teacher/export.csv")
+async def export_teacher_csv(teacher: dict[str, Any] = Depends(require_teacher_role)):
+    """Exporta las métricas consolidadas del pilotaje en formato CSV anonimizado para análisis estadístico."""
+    data = get_pilot_export_data()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Cabeceras del reporte CSV para la tesis
+    writer.writerow([
+        "user_id", "module_id", "checkpoint_id", 
+        "checkpoint_status", "evidence", "rating", 
+        "comments", "answers_json", "updated_at"
+    ])
+    
+    for row in data:
+        writer.writerow([
+            row.get("user_id"),
+            row.get("module_id"),
+            row.get("checkpoint_id"),
+            row.get("checkpoint_status"),
+            row.get("evidence"),
+            row.get("rating"),
+            row.get("comments"),
+            row.get("answers_json"),
+            row.get("updated_at")
+        ])
+    
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=cyberlab_pilot_export.csv"}
+    )
 
 
 @app.get("/api/students/{student_id}/dashboard", response_model=StudentDashboard)
@@ -470,43 +511,66 @@ async def handle_scenario_command(scenario_id: str, payload: ScenarioCommandRequ
 
 
 @app.post("/api/scenarios/{scenario_id}/{action}")
-async def handle_scenario_action(scenario_id: str, action: str, payload: ScenarioActionRequest, current_user: dict = Depends(get_current_user)):
-    act = (payload.action or action).lower().strip()
-    user_id = current_user.get("user_id")
-
-    if act == "start":
-        success, message, data = await start_scenario_session(
-            user_id=user_id,
-            scenario_id=scenario_id,
-        )
-        if not success:
-            raise HTTPException(status_code=500, detail=message)
-        return {
-            "status": "success",
-            "message": message,
+async def handle_scenario_action(scenario_id: str, action: str, current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
+    action_lower = action.lower()
+    
+    if action_lower == "start":
+        success, message, data = await start_scenario_session(user_id, scenario_id)
+        resp = {
             "scenario_id": scenario_id.upper(),
-            "session_id": data.get("session_id"),
-            "local_url": data.get("local_url"),
-            "docker_project_name": data.get("docker_project_name"),
-            "assigned_ports": data.get("assigned_ports"),
-        }
-    elif act in ("stop", "down"):
-        success, message = await stop_scenario_session(
-            user_id=user_id,
-            scenario_id=scenario_id,
-        )
-        if not success:
-            raise HTTPException(status_code=500, detail=message)
-        return {
-            "status": "success",
+            "action": action,
+            "status": "ok" if success else "error",
             "message": message,
-            "scenario_id": scenario_id.upper(),
         }
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Acción no soportada: {act}. Usa 'start' o 'stop'."
-        )
+        if isinstance(data, dict):
+            resp.update(data)
+        return resp
+    
+    elif action_lower == "stop":
+        success, message = await stop_scenario_session(user_id, scenario_id)
+        return {"scenario_id": scenario_id.upper(), "action": action, "status": "ok" if success else "error", "message": message}
+    
+    elif action_lower == "status":
+        from .database import get_active_session
+        from .scenario_runner import SCENARIOS
+        scenario = SCENARIOS.get(scenario_id.upper())
+        if not scenario:
+            raise HTTPException(status_code=404, detail="Escenario no encontrado")
+        active = get_active_session(user_id, scenario.slug)
+        if active:
+            web_port = active["assigned_ports"].get("web", 8000)
+            return {
+                "scenario_id": scenario_id.upper(),
+                "action": "status",
+                "status": "running",
+                "message": "Sesión activa encontrada",
+                "local_url": f"http://127.0.0.1:{web_port}",
+                "session_id": active["id"]
+            }
+        return {
+            "scenario_id": scenario_id.upper(),
+            "action": "status",
+            "status": "stopped",
+            "message": "No hay sesión activa",
+            "local_url": None,
+            "session_id": None
+        }
+    
+    elif action_lower == "reset":
+        await stop_scenario_session(user_id, scenario_id)
+        success, message, data = await start_scenario_session(user_id, scenario_id)
+        resp = {
+            "scenario_id": scenario_id.upper(),
+            "action": "reset",
+            "status": "ok" if success else "error",
+            "message": message,
+        }
+        if isinstance(data, dict):
+            resp.update(data)
+        return resp
+    
+    raise HTTPException(status_code=400, detail=f"Acción no soportada: {action}")
         
 @app.get("/api/consent")
 async def check_consent(current_user: dict = Depends(get_current_user)):
@@ -520,3 +584,21 @@ async def submit_consent(payload: dict, current_user: dict = Depends(get_current
     version = payload.get("version", "1.0")
     result = save_consent(user_id, version)
     return {"status": "ok", **result}
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if request.url.path.startswith("/api"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger.exception("Error interno no controlado: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "detail": "Error interno del servidor. Por favor, intente más tarde."},
+    )

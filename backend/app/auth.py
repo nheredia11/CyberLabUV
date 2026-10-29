@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from fastapi import Depends, HTTPException, status
@@ -10,6 +11,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .database import connect, row_to_dict, utcnow
 
 security = HTTPBearer(auto_error=False)
+
+
+def _hash_token(token: str) -> str:
+    """Genera un hash SHA-256 del token para almacenamiento seguro."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def _init_sessions_table() -> None:
@@ -34,9 +40,9 @@ _init_sessions_table()
 
 
 def create_session(user_id: str, role: str, email: str = "") -> str:
-    token = str(uuid.uuid4())
+    raw_token = str(uuid.uuid4())
+    token_hash = _hash_token(raw_token)
     now = utcnow()
-    # Expiración a las 8 horas
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=8)).isoformat()
 
     with connect() as conn:
@@ -45,15 +51,16 @@ def create_session(user_id: str, role: str, email: str = "") -> str:
             INSERT INTO sessions (token, user_id, role, email, expires_at, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (token, user_id, role, email, expires_at, now),
+            (token_hash, user_id, role, email, expires_at, now),
         )
         conn.commit()
-    return token
+    return raw_token  # Retorna el token en crudo al cliente, pero guarda solo el hash en BD
 
 
 def revoke_session(token: str) -> None:
+    token_hash = _hash_token(token)
     with connect() as conn:
-        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        conn.execute("DELETE FROM sessions WHERE token = ?", (token_hash,))
         conn.commit()
 
 
@@ -66,12 +73,13 @@ def get_current_user(
             detail="Falta el encabezado de autorización",
         )
 
-    token = credentials.credentials
+    raw_token = credentials.credentials
+    token_hash = _hash_token(raw_token)
 
     with connect() as conn:
         row = conn.execute(
             "SELECT user_id, role, email, expires_at FROM sessions WHERE token = ?",
-            (token,),
+            (token_hash,),
         ).fetchone()
 
     if not row:
@@ -86,7 +94,7 @@ def get_current_user(
     try:
         expires_at = datetime.fromisoformat(session_data["expires_at"])
         if datetime.now(timezone.utc) > expires_at:
-            revoke_session(token)
+            revoke_session(raw_token)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token de sesión expirado",

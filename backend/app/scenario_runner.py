@@ -4,9 +4,10 @@ import os
 import socket
 import uuid
 import logging
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Optional, Any
 from datetime import datetime, timedelta, timezone
 
 from .config import get_settings
@@ -23,13 +24,14 @@ class ScenarioDefinition:
     description: str
     default_port: int
     env_port_var: str
+    attacker_service: str
 
 SCENARIOS: Dict[str, ScenarioDefinition] = {
-    "S01": ScenarioDefinition("S01", "recon", "scenarios/recon/docker-compose.yml", "Reconocimiento de red", 8083, "RECON_PORT"),
-    "S02": ScenarioDefinition("S02", "auth_http", "scenarios/auth_http/docker-compose.yml", "Autenticación HTTP", 8081, "AUTH_HTTP_PORT"),
-    "S03": ScenarioDefinition("S03", "web_owasp", "scenarios/web_owasp/docker-compose.yml", "Prácticas OWASP", 8084, "OWASP_PORT"),
-    "S04": ScenarioDefinition("S04", "auth_services", "scenarios/auth_services/docker-compose.yml", "Autenticación SSH/FTP", 8085, "AUTH_SERVICES_PORT"),
-    "S05": ScenarioDefinition("S05", "mitm_lab", "scenarios/mitm_lab/docker-compose.yml", "MITM en tráfico no cifrado", 8086, "MITM_PORT"),
+    "S01": ScenarioDefinition("S01", "recon", "scenarios/recon/docker-compose.yml", "Reconocimiento de red", 8083, "RECON_PORT", "recon-attacker"),
+    "S02": ScenarioDefinition("S02", "auth_http", "scenarios/auth_http/docker-compose.yml", "Autenticación HTTP", 8081, "AUTH_HTTP_PORT", "auth-attacker"),
+    "S03": ScenarioDefinition("S03", "web_owasp", "scenarios/web_owasp/docker-compose.yml", "Prácticas OWASP", 8084, "OWASP_PORT", "web_owasp-attacker"),
+    "S04": ScenarioDefinition("S04", "auth_services", "scenarios/auth_services/docker-compose.yml", "Autenticación SSH/FTP", 8085, "AUTH_SERVICES_PORT", "auth_services-attacker"),
+    "S05": ScenarioDefinition("S05", "mitm_lab", "scenarios/mitm_lab/docker-compose.yml", "MITM en tráfico no cifrado", 8086, "MITM_PORT", "mitm-attacker"),
 }
 
 def find_free_port(start_port: int = 8100, max_tries: int = 200) -> int:
@@ -39,16 +41,30 @@ def find_free_port(start_port: int = 8100, max_tries: int = 200) -> int:
                 return port
     raise RuntimeError("No hay puertos disponibles en el host")
 
-async def _run_cmd_async(cmd: list[str], cwd: Path, env: dict[str, str]) -> Tuple[int, str, str]:
-    proc = await asyncio.create_subprocess_exec(
+async def _run_cmd_async(
+    cmd: list[str],
+    cwd: Path,
+    env: Optional[dict] = None,
+    timeout: int = 180,
+) -> Tuple[int, str, str]:
+    process = await asyncio.create_subprocess_exec(
         *cmd,
         cwd=str(cwd),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env=env
+        env=env or os.environ.copy(),
     )
-    stdout, stderr = await proc.communicate()
-    return proc.returncode, stdout.decode('utf-8', errors='replace'), stderr.decode('utf-8', errors='replace')
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+        return (
+            process.returncode or 0,
+            stdout.decode("utf-8", errors="replace"),
+            stderr.decode("utf-8", errors="replace"),
+        )
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        return -1, "", f"Timeout después de {timeout} segundos"
 
 async def start_scenario_session(user_id: str, scenario_id: str, duration_minutes: int = 60) -> Tuple[bool, str, Dict]:
     normalized_id = scenario_id.upper()
@@ -85,7 +101,6 @@ async def start_scenario_session(user_id: str, scenario_id: str, duration_minute
     if returncode != 0:
         return False, f"Error al desplegar escenario: {stderr[-500:]}", {}
 
-    # Guardar en base de datos con manejo seguro y limpieza ante fallos de persistencia
     try:
         expires_at = (datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)).isoformat()
         assigned_ports = {"web": allocated_port}
@@ -138,33 +153,40 @@ ALLOWED_COMMANDS = {
 FORBIDDEN_CHARS = {";", "|", "&", "$", "`", ">", "<"}
 
 async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> Tuple[bool, str]:
-    """
-    Ejecuta un comando permitido dentro del contenedor atacante de la sesión activa del estudiante.
-    """
+    if not settings.allow_scenario_commands:
+        return False, "Comando simulado (ALLOW_SCENARIO_COMMANDS=false)."
+
+    if len(command) > 300:
+        return False, "Comando demasiado largo (máximo 300 caracteres)."
+
     if any(char in command for char in FORBIDDEN_CHARS):
         return False, "Comando rechazado: contiene caracteres prohibidos por motivos de seguridad."
 
-    parts = command.strip().split()
-    if not parts:
-        return False, "Comando vacío"
-
-    base_cmd = parts[0].lower()
-    if base_cmd not in ALLOWED_COMMANDS:
-        return False, f"Comando '{base_cmd}' no permitido por la política de seguridad del simulador."
-
-    settings = get_settings()
     normalized_id = scenario_id.upper()
     scenario = SCENARIOS.get(normalized_id)
     if not scenario:
         return False, f"Escenario {scenario_id} no encontrado"
 
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return False, "Error de sintaxis en el comando."
+
+    if not parts:
+        return False, "Comando vacío."
+
+    base_cmd = parts[0].lower()
+    if base_cmd not in ALLOWED_COMMANDS:
+        return False, f"Comando '{base_cmd}' no permitido por la política de seguridad del simulador."
+
+    # Validar sesión activa después de confirmar que el comando está permitido
     active = get_active_session(user_id, scenario.slug)
     if not active:
         return False, "No hay una sesión activa para este escenario. Inícialo primero."
 
     project_name = active["docker_project_name"]
     compose_path = settings.root_dir / scenario.compose_file
-    service_name = getattr(scenario, "attacker_service", "attacker")
+    service_name = scenario.attacker_service
 
     cmd = [
         "docker", "compose",

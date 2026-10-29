@@ -6,7 +6,7 @@ services:
     environment:
       SCENARIO_ID: S01
       LAB_MODE: recon
-      APP_TITLE: "CyberLab - Reconocimiento de Red y Servicios"
+      APP_TITLE: "CyberLab - Reconocimiento de Red y Puertos"
     ports:
       - "127.0.0.1:${RECON_PORT:-8083}:5000"
     networks:
@@ -26,7 +26,7 @@ services:
 
   recon-attacker:
     image: alpine:3.21
-    command: sh -c "apk add --no-cache nmap curl && tail -f /dev/null"
+    command: sh -c "apk add --no-cache nmap curl bind-tools && tail -f /dev/null"
     networks:
       - recon_net
     depends_on:

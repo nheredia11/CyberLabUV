@@ -201,3 +201,22 @@ def get_consent(user_id: str) -> dict[str, Any] | None:
     with get_db_connection() as conn:
         row = conn.execute("SELECT user_id, accepted_at, version FROM consents WHERE user_id = ?", (user_id,)).fetchone()
         return dict(row) if row else None
+    
+def get_pilot_export_data() -> list[dict[str, Any]]:
+    """Extrae datos consolidados de checkpoints y encuestas para el análisis estadístico del piloto."""
+    with get_db_connection() as conn:
+        cursor = conn.execute("""
+            SELECT 
+                cs.user_id,
+                cs.module_id,
+                cs.checkpoint_id,
+                cs.status as checkpoint_status,
+                cs.evidence,
+                cs.updated_at,
+                s.rating,
+                s.comments,
+                s.answers_json
+            FROM checkpoint_submissions cs
+            LEFT JOIN surveys s ON cs.user_id = s.user_id AND cs.module_id = s.module_id
+        """)
+        return [dict(row) for row in cursor.fetchall()]
