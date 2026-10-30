@@ -204,9 +204,14 @@ def get_consent(user_id: str) -> dict[str, Any] | None:
         row = conn.execute("SELECT user_id, accepted_at, version FROM consents WHERE user_id = ?", (user_id,)).fetchone()
         return dict(row) if row else None
     
-def get_pilot_export_data() -> list[dict[str, Any]]:
-    """Extrae datos consolidados, anonimizados y con marcas temporales para el análisis estadístico del piloto (OE4)."""
-    salt = os.getenv("PILOT_SALT", "cyberlab-default-salt")
+def get_pilot_export_data(include_comments: bool = False) -> list[dict[str, Any]]:
+    salt = os.getenv("PILOT_SALT")
+    app_env = os.getenv("APP_ENV", "development").lower()
+    if not salt:
+        if app_env == "production":
+            raise RuntimeError("PILOT_SALT environment variable is required in production.")
+        salt = "cyberlab-test-default-salt"
+        
     with get_db_connection() as conn:
         cursor = conn.execute("""
             SELECT 
@@ -228,11 +233,10 @@ def get_pilot_export_data() -> list[dict[str, Any]]:
     export_list = []
     for row in rows:
         d = dict(row)
-        # Anonimizar user_id con SHA-256 + Salt
         raw_uid = d.get("user_id") or "unknown"
         hashed_uid = hashlib.sha256(f"{raw_uid}:{salt}".encode("utf-8")).hexdigest()[:16]
         d["user_id"] = hashed_uid
-        # Excluir texto libre de evidencias por privacidad
-        d.pop("evidence", None)
+        if not include_comments:
+            d.pop("comments", None)
         export_list.append(d)
     return export_list
