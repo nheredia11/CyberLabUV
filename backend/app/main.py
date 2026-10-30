@@ -4,6 +4,7 @@ import logging
 import asyncio
 import csv
 import io
+import time
 from typing import Any
 from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,9 +52,12 @@ from .database import init_db, utcnow
 from .cleanup import start_cleanup_scheduler, cleanup_expired_sessions
 from .services import get_or_create_google_user
 from .config import get_settings
+from collections import defaultdict
 
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
+# Control de Rate Limiting en memoria simple
+request_counts = defaultdict(list)
 
 
 class ScenarioCommandRequest(BaseModel):
@@ -149,6 +153,8 @@ async def login_demo(payload: LoginDemoRequest):
 
 @app.post("/api/auth/google")
 async def google_login(payload: GoogleLoginRequest):
+    # Aplicar rate limit de 10/min
+    check_rate_limit("google_auth", 10)(request)
     try:
         user_info = get_or_create_google_user(payload.credential)
         token = create_session(user_id=user_info["id"], role=user_info["role"], email=user_info["email"])
@@ -171,7 +177,7 @@ async def google_login(payload: GoogleLoginRequest):
             "user": user_data
         }
     except Exception as e:
-        logger.exception("Error durante la autenticación con Google: %s", e)
+        logger.exception("Error de autenticación con Google: %s", e)
         raise HTTPException(status_code=401, detail="Error de autenticación con Google.")
 
 @app.post("/api/auth/dev-login")
@@ -270,20 +276,23 @@ async def create_teacher_note(payload: dict, teacher: dict[str, Any] = Depends(r
     return {"status": "ok", "message": "Nota guardada exitosamente", "note": saved}
 
 @app.get("/api/teacher/export.csv")
-async def export_teacher_csv(teacher: dict[str, Any] = Depends(require_teacher_role)):
-    """Exporta las métricas consolidadas del pilotaje en formato CSV anonimizado para análisis estadístico."""
-    data = get_pilot_export_data()
+async def export_teacher_csv(include_comments: bool = False, teacher: dict[str, Any] = Depends(require_teacher_role)):
+    """Exporta métricas consolidadas del pilotaje con control de comentarios opcionales."""
+    data = get_pilot_export_data(include_comments=include_comments)
     output = io.StringIO()
     writer = csv.writer(output)
-    
-    writer.writerow([
+
+    headers = [
         "user_id", "module_id", "checkpoint_id", 
         "checkpoint_status", "first_activity", "last_activity",
-        "rating", "comments", "answers_json"
-    ])
-    
+        "rating", "answers_json"
+    ]
+    if include_comments:
+        headers.append("comments")
+    writer.writerow(headers)
+
     for row in data:
-        writer.writerow([
+        row_data = [
             row.get("user_id"),
             row.get("module_id"),
             row.get("checkpoint_id"),
@@ -291,10 +300,12 @@ async def export_teacher_csv(teacher: dict[str, Any] = Depends(require_teacher_r
             row.get("first_activity"),
             row.get("last_activity"),
             row.get("rating"),
-            row.get("comments"),
             row.get("answers_json")
-        ])
-    
+        ]
+        if include_comments:
+            row_data.append(row.get("comments"))
+        writer.writerow(row_data)
+
     output.seek(0)
     return Response(
         output.getvalue(),
@@ -454,7 +465,6 @@ async def get_student_report_pdf(student_id: str, current_user: dict = Depends(g
         headers={"Content-Disposition": f"attachment; filename=reporte_{student_id}.pdf"}
     )
 
-
 @app.post("/api/checkpoints/submit")
 async def submit_checkpoint(submission: CheckpointSubmission, current_user: dict = Depends(get_current_user)):
     token_user_id = current_user.get("user_id")
@@ -464,11 +474,11 @@ async def submit_checkpoint(submission: CheckpointSubmission, current_user: dict
     try:
         result = save_checkpoint(submission)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail="Datos de checkpoint inválidos o no cumplen con la validación.")
     except Exception as e:
         logger.exception("Error interno al registrar checkpoint: %s", e)
         raise HTTPException(status_code=500, detail="Error interno al procesar el checkpoint.")
-        
+
     return {"status": "ok", "result": result}
 
 
@@ -496,8 +506,11 @@ async def get_teacher_analytics(
 
 
 @app.post("/api/scenarios/{scenario_id}/command")
-async def handle_scenario_command(scenario_id: str, payload: ScenarioCommandRequest, current_user: dict = Depends(get_current_user)):
+async def handle_scenario_command(scenario_id: str, payload: ScenarioCommandRequest, request: Request, current_user: dict = Depends(get_current_user)):
+    # Rate limit de 30/min por usuario
     user_id = current_user.get("user_id")
+    check_rate_limit(f"cmd_{user_id}", 30)(request)
+
     success, output = await run_scenario_command(
         user_id=user_id,
         scenario_id=scenario_id,
@@ -601,3 +614,14 @@ async def global_exception_handler(request, exc):
         status_code=500,
         content={"status": "error", "detail": "Error interno del servidor. Por favor, intente más tarde."},
     )
+    
+def check_rate_limit(key_prefix: str, max_requests: int, window_seconds: int = 60):
+    def limiter(request: Request):
+        client_ip = request.client.host if request.client else "unknown"
+        key = f"{key_prefix}:{client_ip}"
+        now = time.time()
+        request_counts[key] = [t for t in request_counts[key] if now - t < window_seconds]
+        if len(request_counts[key]) >= max_requests:
+            raise HTTPException(status_code=429, detail="Demasiadas solicitudes. Por favor intente más tarde.")
+        request_counts[key].append(now)
+    return limiter
