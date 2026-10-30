@@ -16,6 +16,11 @@ services:
         limits:
           cpus: '0.50'
           memory: 256M
+    mem_limit: 256M
+    cpus: '0.50'
+    pids_limit: 100
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
       interval: 10s
@@ -26,7 +31,7 @@ services:
 
   mitm-attacker:
     image: alpine:3.21
-    command: sh -c "apk add --no-cache nmap curl bind-tools dsniff tcpdump && tail -f /dev/null"
+    command: sh -c "apk add --no-cache nmap curl bind-tools && tail -f /dev/null"
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -34,6 +39,11 @@ services:
       - mitm_net
     depends_on:
       - mitm-lab
+    mem_limit: 128M
+    cpus: '0.25'
+    pids_limit: 50
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
 networks:
