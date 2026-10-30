@@ -1,7 +1,6 @@
 # CyberLabUV: Simulador Ciberseguridad Interactivo Basado en Contenedores
 
 > **Trabajo de Grado / Tesis de Pregrado**  
-> **Fecha de Sustentación:** 9 de noviembre de 2026  
 > **Institución:** Universidad del Valle (UV)  
 
 ## 📋 Descripción del Proyecto
