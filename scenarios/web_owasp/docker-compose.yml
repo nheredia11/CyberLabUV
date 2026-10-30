@@ -16,6 +16,11 @@ services:
         limits:
           cpus: '0.50'
           memory: 256M
+    mem_limit: 256M
+    cpus: '0.50'
+    pids_limit: 100
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"]
       interval: 10s
@@ -31,6 +36,11 @@ services:
       - web_owasp_net
     depends_on:
       - web_owasp-lab
+    mem_limit: 128M
+    cpus: '0.25'
+    pids_limit: 50
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
 networks:
