@@ -12,6 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.responses import Response, JSONResponse
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
+from collections import defaultdict
 
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -52,12 +53,33 @@ from .database import init_db, utcnow
 from .cleanup import start_cleanup_scheduler, cleanup_expired_sessions
 from .services import get_or_create_google_user
 from .config import get_settings
-from collections import defaultdict
 
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
-# Control de Rate Limiting en memoria simple
+
+# Control de Rate Limiting en memoria con limpieza automática
 request_counts = defaultdict(list)
+
+def check_rate_limit(key_prefix: str, max_requests: int, window_seconds: int = 60):
+    def limiter(request: Request):
+        client_ip = request.client.host if request.client else "unknown"
+        key = f"{key_prefix}:{client_ip}"
+        now = time.time()
+        request_counts[key] = [t for t in request_counts[key] if now - t < window_seconds]
+        if len(request_counts[key]) >= max_requests:
+            raise HTTPException(status_code=429, detail="Demasiadas solicitudes. Por favor intente más tarde.")
+        request_counts[key].append(now)
+    return limiter
+
+def check_user_rate_limit(key_prefix: str, max_requests: int, window_seconds: int = 60):
+    def limiter(user_id: str):
+        key = f"{key_prefix}:{user_id}"
+        now = time.time()
+        request_counts[key] = [t for t in request_counts[key] if now - t < window_seconds]
+        if len(request_counts[key]) >= max_requests:
+            raise HTTPException(status_code=429, detail="Demasiadas solicitudes. Por favor intente más tarde.")
+        request_counts[key].append(now)
+    return limiter
 
 
 class ScenarioCommandRequest(BaseModel):
@@ -152,9 +174,9 @@ async def login_demo(payload: LoginDemoRequest):
 
 
 @app.post("/api/auth/google")
-async def google_login(payload: GoogleLoginRequest):
-    # Aplicar rate limit de 10/min
-    check_rate_limit("google_auth", 10)(request)
+async def google_login(payload: GoogleLoginRequest, request: Request):
+    # Aplicar rate limit de 30/min por IP
+    check_rate_limit("google_auth", 30)(request)
     try:
         user_info = get_or_create_google_user(payload.credential)
         token = create_session(user_id=user_info["id"], role=user_info["role"], email=user_info["email"])
@@ -509,7 +531,7 @@ async def get_teacher_analytics(
 async def handle_scenario_command(scenario_id: str, payload: ScenarioCommandRequest, request: Request, current_user: dict = Depends(get_current_user)):
     # Rate limit de 30/min por usuario
     user_id = current_user.get("user_id")
-    check_rate_limit(f"cmd_{user_id}", 30)(request)
+    check_user_rate_limit(f"cmd_{user_id}", 30)(user_id)
 
     success, output = await run_scenario_command(
         user_id=user_id,
@@ -614,14 +636,3 @@ async def global_exception_handler(request, exc):
         status_code=500,
         content={"status": "error", "detail": "Error interno del servidor. Por favor, intente más tarde."},
     )
-    
-def check_rate_limit(key_prefix: str, max_requests: int, window_seconds: int = 60):
-    def limiter(request: Request):
-        client_ip = request.client.host if request.client else "unknown"
-        key = f"{key_prefix}:{client_ip}"
-        now = time.time()
-        request_counts[key] = [t for t in request_counts[key] if now - t < window_seconds]
-        if len(request_counts[key]) >= max_requests:
-            raise HTTPException(status_code=429, detail="Demasiadas solicitudes. Por favor intente más tarde.")
-        request_counts[key].append(now)
-    return limiter

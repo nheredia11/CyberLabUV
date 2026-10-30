@@ -116,7 +116,7 @@ async def start_scenario_session(user_id: str, scenario_id: str, duration_minute
         logger.exception("Fallo al guardar la sesión en SQLite, realizando rollback de Docker")
         cleanup_cmd = ["docker", "compose", "-p", project_name, "-f", str(compose_path), "down", "-v", "--remove-orphans"]
         await _run_cmd_async(cleanup_cmd, cwd=settings.root_dir, env=env)
-        return False, f"Error interno al registrar sesión: {str(e)}", {}
+        return False, "Error interno al registrar la sesión de práctica.", {}
 
     return True, "Escenario desplegado exitosamente", {
         "session_id": session_id,

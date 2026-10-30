@@ -3,10 +3,6 @@ const API_BASE =
   import.meta.env.VITE_API_URL ||
   "http://127.0.0.1:8000";
 
-const DEV_TOKEN =
-  import.meta.env.VITE_CYBERLAB_TOKEN ||
-  "cyberlabuv-local-token";
-
 function buildQuery(params = {}) {
   const search = new URLSearchParams();
 
@@ -23,7 +19,6 @@ function buildQuery(params = {}) {
 function getHeaders({ json = true } = {}) {
   const headers = {
     Accept: "application/json",
-    "X-CyberLab-Token": DEV_TOKEN,
   };
 
   if (json) {
@@ -31,9 +26,9 @@ function getHeaders({ json = true } = {}) {
   }
 
   const sessionToken =
-  localStorage.getItem("cyberlab_session_token") ||
-  localStorage.getItem("cyberlab_token") ||
-  localStorage.getItem("auth_token");
+    localStorage.getItem("cyberlab_session_token") ||
+    localStorage.getItem("cyberlab_token") ||
+    localStorage.getItem("auth_token");
 
   if (sessionToken) {
     headers.Authorization = `Bearer ${sessionToken}`;
@@ -243,7 +238,6 @@ export function submitSurvey(moduleId, payload) {
 }
 
 export async function runScenarioAction({ user_id, scenario_id, action }) {
-  // Ajuste de ruta para que coincida con main.py
   return request(`/api/scenarios/${encodeURIComponent(scenario_id)}/${encodeURIComponent(action)}`, {
     method: 'POST',
     body: JSON.stringify({ user_id, scenario_id, action }),
@@ -255,7 +249,6 @@ export function scenarioAction(payload) {
 }
 
 export async function runTerminalCommand({ user_id, scenario_id, command }) {
-  // Usamos el wrapper 'request' estandarizado del archivo
   return request(`/api/scenarios/${encodeURIComponent(scenario_id)}/command`, {
     method: 'POST',
     body: JSON.stringify({ user_id, scenario_id, command }),
@@ -332,7 +325,6 @@ const api = {
   getTeacherAnalytics,
   createTeacherNote,
 
-  // Compatibilidad con nombres anteriores usados en App.jsx y otras páginas
   dashboard,
   modules,
   module: moduleDetail,
