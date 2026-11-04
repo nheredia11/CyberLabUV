@@ -14,8 +14,10 @@ services:
     ports:
       - "127.0.0.1:${OWASP_PORT:-8084}:5000"
     networks:
-      - web_owasp_net
-      - web_owasp_edge
+      web_owasp_net:
+        aliases:
+          - web-owasp-lab
+      web_owasp_edge: {}
     mem_limit: 256M
     cpus: "0.50"
     pids_limit: 100
@@ -33,7 +35,8 @@ services:
 
   web_owasp-attacker:
     build:
-      context: ../common/attacker
+      context: ../common
+      dockerfile: attacker/Dockerfile
     image: cyberlab-attacker:1
     user: root
     networks:

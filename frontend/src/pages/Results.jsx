@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { downloadStudentReportPdf } from "../lib/api";
 import {
   AlertCircle,
   Award,
@@ -142,6 +144,9 @@ function NextStep({ number, title, description }) {
 
 export default function Results({ data, user, setView }) {
   const modules = data?.modules || [];
+  const [pdfError, setPdfError] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
+
   const studentName = firstName(user?.name);
 
   const totalModules = data?.total_modules || modules.length || 0;
@@ -149,17 +154,27 @@ export default function Results({ data, user, setView }) {
   const generalPercent = clamp(data?.general_percent);
 
   const downloadPdf = async () => {
-  const token = localStorage.getItem("token");
-  const res = await fetch(`/api/students/${studentId}/report.pdf`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `reporte_${studentId}.pdf`;
-  a.click();
-};
+    const studentId = user?.id || user?.user_id;
+    if (!studentId) {
+      setPdfError("No se pudo identificar al estudiante. Vuelve a iniciar sesión.");
+      return;
+    }
+    setPdfError("");
+    setPdfLoading(true);
+    try {
+      const blob = await downloadStudentReportPdf(studentId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `reporte_${studentId}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      setPdfError(error.message);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const completedCheckpoints = modules.reduce(
     (acc, module) => acc + (module.progress?.completed_checkpoints || 0),
@@ -254,9 +269,10 @@ export default function Results({ data, user, setView }) {
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           {/* BOTÓN ACTUALIZADO PARA DESCARGAR PDF */}
-          <button onClick={downloadPdf} style={{ padding: '8px 15px', background: '#238636', color: '#ffffff', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold' }}>
+          <button onClick={downloadPdf} disabled={pdfLoading} style={{ padding: '8px 15px', background: '#238636', color: '#ffffff', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold' }}>
             <Download size={16} /> Descargar PDF
           </button>
+          {pdfError && <span role="alert" style={{ color: "#ff7b72", fontSize: "13px" }}>{pdfError}</span>}
         </div>
       </section>
       </section>

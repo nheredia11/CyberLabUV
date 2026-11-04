@@ -247,7 +247,9 @@ def auth_http_login():
         success=success,
     )
 
-    return redirect(url_for("index"))
+    # El resultado viaja en la URL de redirección: así un navegador sigue funcionando igual
+    # y herramientas como hydra pueden distinguir intentos válidos de fallidos (F=auth=fail).
+    return redirect(url_for("index", auth="ok" if success else "fail"))
 
 
 @app.get("/web/search")
@@ -335,7 +337,7 @@ def auth_login():
         success=success,
     )
 
-    return redirect(url_for("index"))
+    return redirect(url_for("index", auth="ok" if success else "fail"))
 
 
 @app.post("/mitm/send")

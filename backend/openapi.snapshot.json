@@ -390,6 +390,61 @@
         "title": "StudentDashboard",
         "type": "object"
       },
+      "SurveyMetricsResponse": {
+        "properties": {
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/SurveyModuleMetric"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_responses": {
+            "title": "Total Responses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "total_responses",
+          "modules"
+        ],
+        "title": "SurveyMetricsResponse",
+        "type": "object"
+      },
+      "SurveyModuleMetric": {
+        "properties": {
+          "avg_rating": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Rating"
+          },
+          "module_id": {
+            "title": "Module Id",
+            "type": "string"
+          },
+          "responses": {
+            "title": "Responses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "module_id",
+          "responses"
+        ],
+        "title": "SurveyModuleMetric",
+        "type": "object"
+      },
       "SurveySubmission": {
         "properties": {
           "comments": {
@@ -1371,6 +1426,30 @@
           }
         ],
         "summary": "Create Teacher Note"
+      }
+    },
+    "/api/teacher/survey-metrics": {
+      "get": {
+        "description": "Métricas reales de las encuestas del piloto, por módulo.",
+        "operationId": "get_teacher_survey_metrics_api_teacher_survey_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurveyMetricsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Teacher Survey Metrics"
       }
     },
     "/api/users": {

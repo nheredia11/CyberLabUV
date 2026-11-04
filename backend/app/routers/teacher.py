@@ -23,6 +23,9 @@ from fastapi import APIRouter
 
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
+from ..schemas import SurveyMetricsResponse
+from ..storage import get_survey_metrics
+
 router = APIRouter()
 
 
@@ -83,3 +86,10 @@ async def get_teacher_analytics(
 ):
     analytics_data = get_real_teacher_analytics()
     return {"status": "ok", "teacher_id": teacher["user_id"], "analytics": analytics_data}
+
+
+@router.get("/api/teacher/survey-metrics", response_model=SurveyMetricsResponse)
+async def get_teacher_survey_metrics(teacher: dict[str, Any] = Depends(require_teacher_role)):
+    """Métricas reales de las encuestas del piloto, por módulo."""
+    data = get_survey_metrics()
+    return {"status": "ok", **data}
