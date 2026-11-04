@@ -10,7 +10,6 @@ from ..schemas import (
     GoogleLoginRequest,
 )
 from ..auth import (
-    get_current_user,
     is_dev_login_enabled,
     create_session,
     revoke_session,
@@ -26,14 +25,6 @@ from ..schemas import LoginDemoRequest
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
 router = APIRouter()
-
-
-@router.get("/api/users")
-async def get_users(role: str = "", current_user: dict = Depends(get_current_user)):
-    return [
-        {"user_id": "6472bc6ba01d", "email": "estudiante@uv.edu.co", "role": "student"},
-        {"user_id": "dev_user", "email": "dev@uv.edu.co", "role": "teacher"}
-    ]
 
 
 @router.post("/api/auth/login")

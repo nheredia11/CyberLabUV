@@ -1,32 +1,6 @@
 {
   "components": {
     "schemas": {
-      "Body_submit_survey_alt_api_modules__module_id__surveys_post": {
-        "properties": {
-          "payload": {
-            "title": "Payload",
-            "type": "object"
-          },
-          "submission": {
-            "$ref": "#/components/schemas/SurveySubmission"
-          }
-        },
-        "title": "Body_submit_survey_alt_api_modules__module_id__surveys_post",
-        "type": "object"
-      },
-      "Body_submit_survey_alt_api_surveys_responses_post": {
-        "properties": {
-          "payload": {
-            "title": "Payload",
-            "type": "object"
-          },
-          "submission": {
-            "$ref": "#/components/schemas/SurveySubmission"
-          }
-        },
-        "title": "Body_submit_survey_alt_api_surveys_responses_post",
-        "type": "object"
-      },
       "CatalogItem": {
         "properties": {
           "active": {
@@ -121,16 +95,19 @@
       "CheckpointSubmission": {
         "properties": {
           "checkpoint_id": {
+            "maxLength": 100,
             "title": "Checkpoint Id",
             "type": "string"
           },
           "evidence": {
             "default": "",
+            "maxLength": 5000,
             "title": "Evidence",
             "type": "string"
           },
           "module_id": {
             "default": "default",
+            "maxLength": 50,
             "title": "Module Id",
             "type": "string"
           },
@@ -140,6 +117,7 @@
             "type": "string"
           },
           "student_id": {
+            "maxLength": 100,
             "title": "Student Id",
             "type": "string"
           }
@@ -423,6 +401,24 @@
         "title": "ScenarioCommandResponse",
         "type": "object"
       },
+      "StatusMessageResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "StatusMessageResponse",
+        "type": "object"
+      },
       "StudentDashboard": {
         "description": "Vista del progreso que consumen Dashboard y Resultados en el frontend.",
         "properties": {
@@ -528,17 +524,21 @@
         "properties": {
           "comments": {
             "default": "",
+            "maxLength": 2000,
             "title": "Comments",
             "type": "string"
           },
           "module_id": {
+            "maxLength": 50,
             "title": "Module Id",
             "type": "string"
           },
           "rating": {
             "anyOf": [
               {
-                "type": "integer"
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "number"
               },
               {
                 "type": "null"
@@ -547,10 +547,12 @@
             "title": "Rating"
           },
           "responses": {
+            "maxProperties": 100,
             "title": "Responses",
             "type": "object"
           },
           "student_id": {
+            "maxLength": 100,
             "title": "Student Id",
             "type": "string"
           }
@@ -560,6 +562,34 @@
           "module_id"
         ],
         "title": "SurveySubmission",
+        "type": "object"
+      },
+      "TeacherNoteRequest": {
+        "properties": {
+          "body": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "module_id": {
+            "default": "general",
+            "maxLength": 50,
+            "title": "Module Id",
+            "type": "string"
+          },
+          "student_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Student Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "student_id",
+          "body"
+        ],
+        "title": "TeacherNoteRequest",
         "type": "object"
       },
       "ValidationError": {
@@ -1033,7 +1063,7 @@
     },
     "/api/modules/{module_id}/surveys": {
       "post": {
-        "operationId": "submit_survey_alt_api_modules__module_id__surveys_post",
+        "operationId": "submit_module_survey_api_modules__module_id__surveys_post",
         "parameters": [
           {
             "in": "path",
@@ -1049,16 +1079,19 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_submit_survey_alt_api_modules__module_id__surveys_post"
+                "$ref": "#/components/schemas/SurveySubmission"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StatusMessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -1079,7 +1112,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Submit Survey Alt"
+        "summary": "Submit Module Survey"
       }
     },
     "/api/scenarios/{scenario_id}/command": {
@@ -1319,33 +1352,24 @@
     },
     "/api/surveys/responses": {
       "post": {
-        "operationId": "submit_survey_alt_api_surveys_responses_post",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "module_id",
-            "required": false,
-            "schema": {
-              "default": "default",
-              "title": "Module Id",
-              "type": "string"
-            }
-          }
-        ],
+        "operationId": "submit_survey_api_surveys_responses_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_submit_survey_alt_api_surveys_responses_post"
+                "$ref": "#/components/schemas/SurveySubmission"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StatusMessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -1366,7 +1390,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Submit Survey Alt"
+        "summary": "Submit Survey"
       }
     },
     "/api/surveys/submit": {
@@ -1386,7 +1410,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StatusMessageResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -1482,8 +1508,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "title": "Payload",
-                "type": "object"
+                "$ref": "#/components/schemas/TeacherNoteRequest"
               }
             }
           },
@@ -1539,49 +1564,6 @@
           }
         ],
         "summary": "Get Teacher Survey Metrics"
-      }
-    },
-    "/api/users": {
-      "get": {
-        "operationId": "get_users_api_users_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "role",
-            "required": false,
-            "schema": {
-              "default": "",
-              "title": "Role",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Get Users"
       }
     },
     "/health": {

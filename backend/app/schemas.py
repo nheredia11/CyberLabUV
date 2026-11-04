@@ -45,10 +45,10 @@ class ModuleDetail(CatalogItem):
 
 
 class CheckpointSubmission(BaseModel):
-    student_id: str = Field(..., validation_alias=AliasChoices("student_id", "user_id"))
-    module_id: str = "default"
-    checkpoint_id: str
-    evidence: str = ""
+    student_id: str = Field(..., max_length=100, validation_alias=AliasChoices("student_id", "user_id"))
+    module_id: str = Field("default", max_length=50)
+    checkpoint_id: str = Field(..., max_length=100)
+    evidence: str = Field("", max_length=5000)
     status: str = Field("done", validation_alias=AliasChoices("status", "completed"))
 
     model_config = {"populate_by_name": True}
@@ -119,11 +119,12 @@ class GoogleLoginRequest(BaseModel):
 
 
 class SurveySubmission(BaseModel):
-    student_id: str = Field(..., validation_alias=AliasChoices("student_id", "user_id"))
-    module_id: str
-    responses: dict[str, Any] = Field(default_factory=dict, validation_alias=AliasChoices("responses", "answers", "answers_json"))
-    rating: int | None = None
-    comments: str = ""
+    student_id: str = Field(..., max_length=100, validation_alias=AliasChoices("student_id", "user_id"))
+    module_id: str = Field(..., max_length=50)
+    responses: dict[str, Any] = Field(default_factory=dict, max_length=100, validation_alias=AliasChoices("responses", "answers", "answers_json"))
+    # Promedio Likert (1 a 5) calculado por la interfaz; puede ser decimal (p. ej. 4.33).
+    rating: float | None = Field(None, ge=1, le=5)
+    comments: str = Field("", max_length=2000)
 
     model_config = {"populate_by_name": True}
 
@@ -172,3 +173,14 @@ class SurveyMetricsResponse(BaseModel):
     status: str
     total_responses: int
     modules: list[SurveyModuleMetric]
+
+
+class TeacherNoteRequest(BaseModel):
+    student_id: str = Field(..., min_length=1, max_length=100)
+    module_id: str = Field("general", max_length=50)
+    body: str = Field(..., min_length=1, max_length=5000)
+
+
+class StatusMessageResponse(BaseModel):
+    status: str
+    message: str

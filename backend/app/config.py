@@ -43,10 +43,8 @@ class Settings(BaseSettings):
         alias="ALLOW_SCENARIO_COMMANDS",
     )
 
-    dev_token: str = Field(
-        default="cyberlabuv-local-token",
-        alias="DEV_TOKEN",
-    )
+    max_sessions_per_user: int = Field(default=2, alias="MAX_SESSIONS_PER_USER")
+    max_sessions_total: int = Field(default=20, alias="MAX_SESSIONS_TOTAL")
 
     cors_origins_raw: str = Field(
         default=(

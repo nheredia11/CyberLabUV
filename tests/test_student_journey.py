@@ -63,10 +63,11 @@ def test_student_full_journey(client, monkeypatch):
     assert [c["completed"] for c in mod["checkpoints"]][:2] == [True, True]
 
     # 7. Encuesta: exige consentimiento y luego se guarda
-    survey = {"student_id": uid, "module_id": "S01", "responses": {"q1": 5}, "rating": 5, "comments": ""}
-    assert client.post("/api/surveys/submit", json=survey, headers=h).status_code == 403
+    survey = {"user_id": uid, "student_id": uid, "module_id": "S01", "answers": {"q1": 4, "q2": 5},
+              "answers_json": {"q1": 4, "q2": 5}, "rating": 4.5, "comments": ""}  # forma de api.js
+    assert client.post("/api/modules/S01/surveys", json=survey, headers=h).status_code == 403
     assert client.post("/api/consent", json={"accepted": True}, headers=h).status_code == 200
-    assert client.post("/api/surveys/submit", json=survey, headers=h).status_code == 200
+    assert client.post("/api/modules/S01/surveys", json=survey, headers=h).status_code == 200
     assert client.get("/api/modules/S01", headers=h).json()["survey_completed"] is True
 
     # 8. Completar todo el módulo suma una insignia
@@ -84,7 +85,7 @@ def test_student_full_journey(client, monkeypatch):
     # 10. El docente ve las métricas reales
     th, _ = _login(client, "teacher", "dev@uv.edu.co")
     metrics = client.get("/api/teacher/survey-metrics", headers=th).json()
-    assert metrics["modules"][0] == {"module_id": "S01", "responses": 1, "avg_rating": 5.0}
+    assert metrics["modules"][0] == {"module_id": "S01", "responses": 1, "avg_rating": 4.5}
 
 
 def test_module_progress_uses_token_not_query_user(client):

@@ -12,7 +12,7 @@ from typing import Dict, Tuple, Optional
 from datetime import datetime, timedelta, timezone
 
 from .config import get_settings
-from .database import create_practice_session, get_active_session, update_session_status
+from .database import count_running_sessions, create_practice_session, get_active_session, update_session_status
 
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
@@ -81,6 +81,14 @@ async def start_scenario_session(user_id: str, scenario_id: str, duration_minute
             "local_url": f"http://127.0.0.1:{web_port}",
             "status": active["status"]
         }
+
+    if count_running_sessions(user_id) >= settings.max_sessions_per_user:
+        return False, (
+            f"Ya tienes {settings.max_sessions_per_user} escenarios activos. "
+            "Detén uno antes de iniciar otro."
+        ), {}
+    if count_running_sessions() >= settings.max_sessions_total:
+        return False, "El simulador está al límite de capacidad. Intenta de nuevo en unos minutos.", {}
 
     session_id = str(uuid.uuid4())[:8]
     project_name = f"session_{session_id}"
