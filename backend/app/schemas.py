@@ -32,6 +32,7 @@ class CheckpointDef(BaseModel):
     type: str = Field("flag", validation_alias=AliasChoices("type", "tipo"))
     question: str = Field("", validation_alias=AliasChoices("question", "evidencia", "titulo"))
     points: int = 10
+    completed: bool = False  # se rellena por estudiante en GET /api/modules/{id}
 
     model_config = {"populate_by_name": True}
 
@@ -40,6 +41,7 @@ class ModuleDetail(CatalogItem):
     theory: str = ""
     checkpoints: list[CheckpointDef] = Field(default_factory=list)
     survey: list[dict[str, Any]] = Field(default_factory=list, validation_alias=AliasChoices("survey", "surveys", "encuesta"))
+    survey_completed: bool = False  # se rellena por estudiante en GET /api/modules/{id}
 
 
 class CheckpointSubmission(BaseModel):
@@ -75,14 +77,31 @@ class StudentModuleProgress(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class StudentDashboard(BaseModel):
-    student_id: str = Field(..., validation_alias=AliasChoices("student_id", "user_id"))
-    progress_percent: float = Field(0.0, validation_alias=AliasChoices("progress_percent", "general_percent"))
-    completed_modules_count: int = 0
-    total_modules_count: int = 0
-    modules: list[dict[str, Any]] = Field(default_factory=list)
+class ModuleProgressView(BaseModel):
+    percent: float = 0.0
+    completed_checkpoints: int = 0
+    total_checkpoints: int = 0
+    survey_completed: bool = False
 
-    model_config = {"populate_by_name": True}
+
+class DashboardModule(BaseModel):
+    id: str
+    title: str
+    description: str = ""
+    orden: int = 0
+    progress: ModuleProgressView
+
+
+class StudentDashboard(BaseModel):
+    """Vista del progreso que consumen Dashboard y Resultados en el frontend."""
+
+    student_id: str
+    general_percent: float = 0.0
+    completed_modules: int = 0
+    total_modules: int = 0
+    points: int = 0   # suma de los puntos de cada checkpoint completado
+    badges: int = 0   # una insignia por módulo completado (regla provisional)
+    modules: list[DashboardModule] = Field(default_factory=list)
 
 
 class TeacherAnalytics(BaseModel):

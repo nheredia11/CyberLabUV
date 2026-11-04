@@ -82,6 +82,11 @@
       },
       "CheckpointDef": {
         "properties": {
+          "completed": {
+            "default": false,
+            "title": "Completed",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -144,6 +149,38 @@
           "checkpoint_id"
         ],
         "title": "CheckpointSubmission",
+        "type": "object"
+      },
+      "DashboardModule": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "orden": {
+            "default": 0,
+            "title": "Orden",
+            "type": "integer"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ModuleProgressView"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "progress"
+        ],
+        "title": "DashboardModule",
         "type": "object"
       },
       "GoogleLoginRequest": {
@@ -250,6 +287,11 @@
             "title": "Survey",
             "type": "array"
           },
+          "survey_completed": {
+            "default": false,
+            "title": "Survey Completed",
+            "type": "boolean"
+          },
           "theory": {
             "default": "",
             "title": "Theory",
@@ -265,6 +307,32 @@
           "title"
         ],
         "title": "ModuleDetail",
+        "type": "object"
+      },
+      "ModuleProgressView": {
+        "properties": {
+          "completed_checkpoints": {
+            "default": 0,
+            "title": "Completed Checkpoints",
+            "type": "integer"
+          },
+          "percent": {
+            "default": 0.0,
+            "title": "Percent",
+            "type": "number"
+          },
+          "survey_completed": {
+            "default": false,
+            "title": "Survey Completed",
+            "type": "boolean"
+          },
+          "total_checkpoints": {
+            "default": 0,
+            "title": "Total Checkpoints",
+            "type": "integer"
+          }
+        },
+        "title": "ModuleProgressView",
         "type": "object"
       },
       "ScenarioActionResponse": {
@@ -356,31 +424,42 @@
         "type": "object"
       },
       "StudentDashboard": {
+        "description": "Vista del progreso que consumen Dashboard y Resultados en el frontend.",
         "properties": {
-          "completed_modules_count": {
+          "badges": {
             "default": 0,
-            "title": "Completed Modules Count",
+            "title": "Badges",
             "type": "integer"
+          },
+          "completed_modules": {
+            "default": 0,
+            "title": "Completed Modules",
+            "type": "integer"
+          },
+          "general_percent": {
+            "default": 0.0,
+            "title": "General Percent",
+            "type": "number"
           },
           "modules": {
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/DashboardModule"
             },
             "title": "Modules",
             "type": "array"
           },
-          "progress_percent": {
-            "default": 0.0,
-            "title": "Progress Percent",
-            "type": "number"
+          "points": {
+            "default": 0,
+            "title": "Points",
+            "type": "integer"
           },
           "student_id": {
             "title": "Student Id",
             "type": "string"
           },
-          "total_modules_count": {
+          "total_modules": {
             "default": 0,
-            "title": "Total Modules Count",
+            "title": "Total Modules",
             "type": "integer"
           }
         },
@@ -719,6 +798,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Module"
       }
     },
@@ -882,6 +966,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Module"
       }
     },
