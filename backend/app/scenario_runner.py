@@ -7,7 +7,7 @@ import logging
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Tuple, Optional, Any
+from typing import Dict, Tuple, Optional
 from datetime import datetime, timedelta, timezone
 
 from .config import get_settings
@@ -146,11 +146,33 @@ async def stop_scenario_session(user_id: str, scenario_id: str) -> Tuple[bool, s
     
     return False, f"Falló al detener el contenedor: {stderr[-300:]}"
 
-ALLOWED_COMMANDS = {
-    "nmap", "ping", "curl", "cat", "ls", "whoami", "id",
-    "nc", "dig", "grep", "echo", "pwd", "netstat", "ps", "head", "tail"
+# Comandos permitidos en todos los escenarios.
+BASE_COMMANDS = {
+    "nmap", "ping", "curl", "cat", "ls", "whoami", "id", "nc", "dig",
+    "grep", "echo", "pwd", "netstat", "ps", "head", "tail",
 }
-FORBIDDEN_CHARS = {";", "|", "&", "$", "`", ">", "<"}
+# Herramientas adicionales por escenario (principio de mínimo privilegio).
+EXTRA_COMMANDS: Dict[str, set] = {
+    "S02": {"hydra"},
+    "S04": {"hydra", "ssh"},
+    "S05": {"tcpdump"},
+}
+# Compatibilidad con código/pruebas que importan ALLOWED_COMMANDS.
+ALLOWED_COMMANDS = set(BASE_COMMANDS).union(*EXTRA_COMMANDS.values())
+FORBIDDEN_CHARS = {";", "|", "&", "$", "`", ">", "<", "\n", "\r"}
+MAX_OUTPUT_CHARS = 20_000
+COMMAND_TIMEOUT_SECONDS = 60
+
+
+def allowed_commands_for(scenario_id: str) -> set:
+    return BASE_COMMANDS | EXTRA_COMMANDS.get(scenario_id.upper(), set())
+
+
+def _truncate(text: str) -> str:
+    if len(text) <= MAX_OUTPUT_CHARS:
+        return text
+    return text[:MAX_OUTPUT_CHARS] + "\n... [salida truncada]"
+
 
 async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> Tuple[bool, str]:
     # 1. Validaciones de sintaxis y seguridad PRIMERO (para que los tests detecten comandos no permitidos correctamente)
@@ -174,7 +196,7 @@ async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> 
         return False, "Comando vacío."
 
     base_cmd = parts[0].lower()
-    if base_cmd not in ALLOWED_COMMANDS:
+    if base_cmd not in allowed_commands_for(normalized_id):
         return False, f"Comando '{base_cmd}' no permitido por la política de seguridad del simulador."
 
     # 2. Verificar el interruptor de entorno para ejecución real / simulada
@@ -197,7 +219,16 @@ async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> 
         "exec", "-T", service_name,
     ] + parts
 
-    returncode, stdout, stderr = await _run_cmd_async(cmd, cwd=settings.root_dir)
+    returncode, stdout, stderr = await _run_cmd_async(
+        cmd, cwd=settings.root_dir, timeout=COMMAND_TIMEOUT_SECONDS
+    )
+    if returncode == -1:
+        return False, stderr
+    output = (stdout + ("\n" + stderr if stderr else "")).strip()
+    # Herramientas como hydra o nmap devuelven código != 0 en resultados válidos
+    # (sin credenciales encontradas, host caído). Se muestra la salida al estudiante.
     if returncode != 0:
-        return False, f"Error ejecutando comando: {stderr or stdout}"
-    return True, stdout
+        if not output:
+            return False, f"El comando terminó con código {returncode} sin salida."
+        output += f"\n[código de salida: {returncode}]"
+    return True, _truncate(output)

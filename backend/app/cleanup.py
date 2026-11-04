@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-from pathlib import Path
 
 from .config import get_settings
 from .database import get_expired_running_sessions, update_session_status
