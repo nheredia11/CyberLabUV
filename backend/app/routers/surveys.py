@@ -1,70 +1,44 @@
-"""Rutas: surveys."""
+"""Rutas: encuestas del piloto.
+
+Las tres rutas guardan lo mismo; la interfaz usa /api/modules/{id}/surveys.
+"""
 from __future__ import annotations
 
-import logging
-from fastapi import HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth import get_current_user
+from ..content import load_module
+from ..schemas import StatusMessageResponse, SurveySubmission
+from ..storage import get_consent, save_survey
 
-from ..schemas import (
-    SurveySubmission,
-)
-from ..storage import (
-    save_survey,
-    get_consent,
-)
-from ..auth import (
-    get_current_user,
-)
-from ..config import get_settings
-
-from fastapi import APIRouter
-
-logger = logging.getLogger("cyberlab")
-settings = get_settings()
 router = APIRouter()
 
 
-@router.post("/api/modules/{module_id}/surveys")
-@router.post("/api/surveys/responses")
-async def submit_survey_alt(module_id: str = "default", submission: SurveySubmission = None, payload: dict = None, current_user: dict = Depends(get_current_user)):
-    user_id = current_user.get("user_id")
-    
+def _store_survey(submission: SurveySubmission, current_user: dict) -> dict:
+    user_id = current_user["user_id"]
     if not get_consent(user_id):
         raise HTTPException(
-            status_code=403, 
-            detail="Debe aceptar el consentimiento informado antes de responder encuestas."
+            status_code=403,
+            detail="Debe aceptar el consentimiento informado antes de responder encuestas.",
         )
+    module = load_module(submission.module_id)
+    if not module:
+        raise HTTPException(status_code=422, detail=f"Módulo {submission.module_id} no existe.")
 
-    if submission is None and payload is not None:
-        sub = SurveySubmission(
-            student_id=user_id,
-            module_id=payload.get("module_id", module_id),
-            responses=payload.get("answers", payload.get("responses", {})),
-            rating=payload.get("rating"),
-            comments=payload.get("comments", "")
-        )
-    elif submission is not None:
-        sub = submission
-        sub.student_id = user_id
-        if not sub.module_id:
-            sub.module_id = module_id
-    else:
-        raise HTTPException(status_code=422, detail="Datos de encuesta inválidos")
-    
-    save_survey(sub)
-    return {"status": "ok", "message": "Encuesta guardada exitosamente"}
-
-
-@router.post("/api/surveys/submit")
-async def submit_survey(submission: SurveySubmission, current_user: dict = Depends(get_current_user)):
-    user_id = current_user.get("user_id")
+    # La identidad sale del token, nunca del cuerpo de la petición.
     submission.student_id = user_id
-    
-    if not get_consent(user_id):
-        raise HTTPException(
-            status_code=403, 
-            detail="Debe aceptar el consentimiento informado antes de responder encuestas."
-        )
-        
+    submission.module_id = module.id
     save_survey(submission)
     return {"status": "ok", "message": "Encuesta guardada exitosamente"}
+
+
+@router.post("/api/modules/{module_id}/surveys", response_model=StatusMessageResponse)
+async def submit_module_survey(module_id: str, submission: SurveySubmission, current_user: dict = Depends(get_current_user)):
+    submission.module_id = module_id  # la ruta manda sobre el cuerpo
+    return _store_survey(submission, current_user)
+
+
+@router.post("/api/surveys/responses", response_model=StatusMessageResponse)
+@router.post("/api/surveys/submit", response_model=StatusMessageResponse)
+async def submit_survey(submission: SurveySubmission, current_user: dict = Depends(get_current_user)):
+    return _store_survey(submission, current_user)
