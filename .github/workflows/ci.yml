@@ -2,9 +2,9 @@ name: CI CyberLabUV
 
 on:
   push:
-    branches: [ "nestor-heredia", "main" ]
+    branches: [ "nestor-heredia", "main", "development" ]
   pull_request:
-    branches: [ "nestor-heredia", "main" ]
+    branches: [ "nestor-heredia", "main", "development" ]
 
 jobs:
   build-and-test:
@@ -29,6 +29,16 @@ jobs:
         PYTHONPATH: backend
       run: |
         pytest tests/ -v
+
+    - name: Validate scenario compose files
+      run: |
+        for f in scenarios/*/docker-compose.yml; do
+          echo "Validando $f"
+          docker compose -f "$f" config --quiet
+        done
+
+    - name: Build attacker image
+      run: docker build -t cyberlab-attacker:1 scenarios/common/attacker
 
     - name: Set up Node.js
       uses: actions/setup-node@v4

@@ -1,3 +1,7 @@
+# S01 · Reconocimiento de red y puertos
+# Laboratorio vulnerable + contenedor atacante. Aislamiento:
+#  - recon_net: red interna (sin salida a internet), compartida por lab y atacante.
+#  - recon_edge: solo el laboratorio la usa para publicar su puerto en 127.0.0.1.
 services:
   recon-lab:
     build:
@@ -11,14 +15,12 @@ services:
       - "127.0.0.1:${RECON_PORT:-8083}:5000"
     networks:
       - recon_net
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 256M
+      - recon_edge
     mem_limit: 256M
-    cpus: '0.50'
+    cpus: "0.50"
     pids_limit: 100
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -30,19 +32,38 @@ services:
     restart: unless-stopped
 
   recon-attacker:
-    image: alpine:3.21
-    command: sh -c "apk add --no-cache nmap curl bind-tools && tail -f /dev/null"
+    build:
+      context: ../common/attacker
+    image: cyberlab-attacker:1
+    user: root
     networks:
       - recon_net
     depends_on:
-      - recon-lab
+      recon-lab:
+        condition: service_healthy
     mem_limit: 128M
-    cpus: '0.25'
+    cpus: "0.25"
     pids_limit: 50
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/student:uid=1000
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "which", "nmap"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
 
 networks:
   recon_net:
+    driver: bridge
+    internal: true
+  recon_edge:
     driver: bridge
