@@ -88,6 +88,22 @@ export default function Practice({
   useEffect(() => {
     setDynamicLabUrl(null);
     setSelectedCommand(SAFE_COMMANDS[scenarioId]?.[0] || "");
+    if (scenarioId === "M00") return undefined;
+
+    // Si el estudiante recarga la página, la sesión Docker sigue viva en el backend.
+    let cancelled = false;
+    runScenarioAction({ user_id: userId, scenario_id: scenarioId, action: "status" })
+      .then((res) => {
+        if (!cancelled && res?.status === "running" && res.local_url) {
+          setDynamicLabUrl(res.local_url);
+          appendToConsole(`Sesión activa recuperada: ${res.local_url}`);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenarioId]);
   
   // Refactorizamos la salida para que sea un historial limpio de terminal
@@ -130,6 +146,11 @@ export default function Practice({
         action,
       });
 
+      if (response?.status === "error") {
+        appendToConsole(response.message || "No se pudo completar la acción.", false, true);
+        return;
+      }
+
       // Extraemos solo el mensaje o salida limpia
       const cleanOutput = response.stdout || response.message || response.stderr || "Acción completada sin salida en consola.";
       appendToConsole(cleanOutput);
@@ -160,6 +181,15 @@ export default function Practice({
       return;
     }
 
+    if (!dynamicLabUrl) {
+      appendToConsole(
+        "Primero inicia el escenario con el botón «Iniciar escenario».",
+        false,
+        true
+      );
+      return;
+    }
+
     try {
       setLoadingCommand(true);
       appendToConsole(command, true); // Imprimir el comando que se acaba de lanzar
@@ -177,7 +207,7 @@ export default function Practice({
       }
 
       // Mostrar el stdout limpio de Docker (ej: la salida de nmap real)
-      const cleanOutput = response.stdout || response.stderr || response.message || "Comando ejecutado sin salida.";
+      const cleanOutput = response.output || response.stdout || response.stderr || response.message || "Comando ejecutado sin salida.";
       appendToConsole(cleanOutput);
 
     } catch (error) {
@@ -287,6 +317,11 @@ export default function Practice({
           <h3 style={{ color: '#c9d1d9', marginBottom: '10px' }}>⌨️ Terminal Guiada</h3>
           <p style={{ color: '#8b949e', fontSize: '13px', marginBottom: '15px' }}>
             Ejecuta comandos de reconocimiento y explotación desde la máquina atacante.
+            {!dynamicLabUrl && (
+              <strong style={{ display: 'block', marginTop: '6px', color: '#d29922' }}>
+                Inicia el escenario para habilitar la terminal.
+              </strong>
+            )}
           </p>
 
           <div style={{ marginBottom: '15px' }}>
@@ -305,7 +340,7 @@ export default function Practice({
               <button
                 type="button"
                 onClick={() => handleTerminalCommand(selectedCommand)}
-                disabled={loadingCommand || !selectedCommand}
+                disabled={loadingCommand || !selectedCommand || !dynamicLabUrl}
                 style={{ padding: '10px 15px', background: '#2ea043', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
               >
                 {loadingCommand ? "..." : "Ejecutar"}
@@ -325,7 +360,7 @@ export default function Practice({
               <button
                 type="button"
                 onClick={() => handleTerminalCommand(customCommand)}
-                disabled={loadingCommand || !customCommand.trim()}
+                disabled={loadingCommand || !customCommand.trim() || !dynamicLabUrl}
                 style={{ padding: '10px 15px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer' }}
               >
                 Lanzar

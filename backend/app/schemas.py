@@ -114,3 +114,30 @@ class ScenarioActionRequest(BaseModel):
     action: str | None = None
 
     model_config = {"populate_by_name": True}
+
+
+class ScenarioCommandRequest(BaseModel):
+    scenario_id: str
+    command: str
+
+
+class LoginDemoRequest(BaseModel):
+    email: str
+    role: str = "student"
+    name: str = ""
+
+
+class ScenarioCommandResponse(BaseModel):
+    """Respuesta de POST /api/scenarios/{id}/command. La salida viaja en `output`."""
+    status: str
+    output: str
+
+
+class ScenarioActionResponse(BaseModel):
+    """Respuesta de start/stop/status/reset de un escenario."""
+    scenario_id: str
+    action: str
+    status: str
+    message: str
+    local_url: str | None = None
+    session_id: str | None = None
