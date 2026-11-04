@@ -159,6 +159,30 @@ def get_teacher_analytics() -> dict[str, Any]:
         "submissions": submissions,
     }
     
+def get_survey_metrics() -> dict[str, Any]:
+    """Promedio de calificación y número de respuestas por módulo (datos reales del piloto)."""
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT module_id,
+                   COUNT(*) AS responses,
+                   AVG(rating) AS avg_rating
+            FROM surveys
+            GROUP BY module_id
+            ORDER BY module_id
+            """
+        ).fetchall()
+    modules = [
+        {
+            "module_id": r["module_id"],
+            "responses": r["responses"],
+            "avg_rating": round(r["avg_rating"], 2) if r["avg_rating"] is not None else None,
+        }
+        for r in rows
+    ]
+    return {"total_responses": sum(m["responses"] for m in modules), "modules": modules}
+
+
 def save_note(payload: dict[str, Any]) -> dict[str, Any]:
     init_db()
     now = utcnow()

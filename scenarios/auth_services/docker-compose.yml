@@ -14,8 +14,10 @@ services:
     ports:
       - "127.0.0.1:${AUTH_SERVICES_PORT:-8085}:5000"
     networks:
-      - auth_services_net
-      - auth_services_edge
+      auth_services_net:
+        aliases:
+          - auth-services-lab
+      auth_services_edge: {}
     mem_limit: 256M
     cpus: "0.50"
     pids_limit: 100
@@ -33,7 +35,8 @@ services:
 
   auth_services-attacker:
     build:
-      context: ../common/attacker
+      context: ../common
+      dockerfile: attacker/Dockerfile
     image: cyberlab-attacker:1
     user: root
     networks:

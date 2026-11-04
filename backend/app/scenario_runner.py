@@ -4,6 +4,7 @@ import os
 import socket
 import uuid
 import logging
+import re
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
@@ -159,9 +160,23 @@ EXTRA_COMMANDS: Dict[str, set] = {
 }
 # Compatibilidad con código/pruebas que importan ALLOWED_COMMANDS.
 ALLOWED_COMMANDS = set(BASE_COMMANDS).union(*EXTRA_COMMANDS.values())
-FORBIDDEN_CHARS = {";", "|", "&", "$", "`", ">", "<", "\n", "\r"}
+# Siempre prohibidos (sustitución de comandos y saltos de línea).
+FORBIDDEN_ALWAYS = {"$", "`", "\n", "\r"}
+# Prohibidos fuera de comillas. Dentro de comillas son datos (p. ej. el formulario de hydra
+# "/login:user=^USER^&pass=^PASS^:F=fail"); el comando se ejecuta sin shell, así que no se interpretan.
+FORBIDDEN_UNQUOTED = {";", "|", "&", ">", "<"}
+# Compatibilidad con código que importaba FORBIDDEN_CHARS.
+FORBIDDEN_CHARS = FORBIDDEN_ALWAYS | FORBIDDEN_UNQUOTED
+_QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
 MAX_OUTPUT_CHARS = 20_000
 COMMAND_TIMEOUT_SECONDS = 60
+
+
+def has_forbidden_chars(command: str) -> bool:
+    if any(c in command for c in FORBIDDEN_ALWAYS):
+        return True
+    unquoted = _QUOTED.sub("", command)
+    return any(c in unquoted for c in FORBIDDEN_UNQUOTED)
 
 
 def allowed_commands_for(scenario_id: str) -> set:
@@ -179,7 +194,7 @@ async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> 
     if len(command) > 300:
         return False, "Comando demasiado largo (máximo 300 caracteres)."
 
-    if any(char in command for char in FORBIDDEN_CHARS):
+    if has_forbidden_chars(command):
         return False, "Comando rechazado: contiene caracteres prohibidos por motivos de seguridad."
 
     normalized_id = scenario_id.upper()

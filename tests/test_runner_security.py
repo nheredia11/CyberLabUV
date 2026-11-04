@@ -104,3 +104,23 @@ def test_compose_files_are_isolated():
         assert not extra, sc.slug
         if sc.slug != "mitm_lab":
             assert "NET_ADMIN" not in att.get("cap_add", []), sc.slug
+
+
+HYDRA_FORM = 'hydra -l estudiante -P /usr/share/wordlists/demo.txt -s 5000 auth-lab http-post-form "/auth-http/login:username=^USER^&password=^PASS^:F=auth=fail"'
+
+
+def test_ampersand_allowed_only_inside_quotes():
+    assert not r.has_forbidden_chars(HYDRA_FORM)
+    assert r.has_forbidden_chars("curl http://x & id")
+    assert r.has_forbidden_chars("curl 'http://x' ; id")
+    assert r.has_forbidden_chars('curl "a" | nc x 1')
+    assert r.has_forbidden_chars('echo "$(id)"')  # sustitución prohibida incluso entre comillas
+
+
+def test_hydra_form_command_runs_in_s02(active_session, monkeypatch):
+    f = fake_exec(stdout="1 valid password found")
+    monkeypatch.setattr(r, "_run_cmd_async", f)
+    ok, out = run(r.run_scenario_command("u", "S02", HYDRA_FORM))
+    assert ok and "valid password" in out
+    # La forma del formulario llega como UN solo argumento (sin shell).
+    assert f.last_cmd[-1] == "/auth-http/login:username=^USER^&password=^PASS^:F=auth=fail"

