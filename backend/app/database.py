@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS surveys (
     comments TEXT,
     created_at TEXT NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_surveys_user_module ON surveys(user_id, module_id);
 
 CREATE TABLE IF NOT EXISTS scenario_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

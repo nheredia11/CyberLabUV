@@ -265,6 +265,23 @@ export function getTeacherAnalytics() {
   });
 }
 
+export function getSurveyMetrics() {
+  return request("/api/teacher/survey-metrics", {
+    method: "GET",
+  });
+}
+
+export async function downloadStudentReportPdf(studentId) {
+  const response = await fetch(
+    `${API_BASE}/api/students/${encodeURIComponent(studentId)}/report.pdf`,
+    { headers: getHeaders({ json: false }) },
+  );
+  if (!response.ok) {
+    throw new Error(`No se pudo generar el reporte (HTTP ${response.status}).`);
+  }
+  return response.blob();
+}
+
 export function createTeacherNote(payload) {
   return request("/api/teacher/notes", {
     method: "POST",
@@ -323,6 +340,8 @@ const api = {
   terminalCommand,
 
   getTeacherAnalytics,
+  getSurveyMetrics,
+  downloadStudentReportPdf,
   createTeacherNote,
 
   dashboard,

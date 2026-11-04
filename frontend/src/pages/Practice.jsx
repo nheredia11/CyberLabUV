@@ -1,32 +1,12 @@
 import { useMemo, useState, useRef, useEffect } from "react";
+import safeCommands from "../content/safeCommands.json";
 import {
   runScenarioAction,
   runTerminalCommand,
 } from "../lib/api";
 
-const SAFE_COMMANDS = {
-  S01: [
-    "nmap -sV recon-lab",
-    "curl -I http://recon-lab:5000",
-  ],
-  S02: [
-    "hydra -l estudiante -P wordlists/demo.txt localhost http-post-form",
-    "curl -i http://127.0.0.1:8081/health",
-  ],
-  S03: [
-    "curl 'http://web-owasp-lab/search?q=1%20OR%201=1'",
-    "curl 'http://web-owasp-lab/search?q=test'",
-    "curl 'http://web-owasp-lab/file?name=readme.txt'",
-  ],
-  S04: [
-    "nmap -p 21,22 auth-services-lab",
-    "hydra -l admin -P wordlists/fast.txt ssh://auth-services-lab",
-  ],
-  S05: [
-    "arpspoof -i eth0 -t victima_ip puerta_enlace_ip",
-    "tcpdump -i eth0 -n -A 'tcp port 80'",
-  ],
-};
+// Fuente única compartida con los tests del backend (tests/test_contract.py).
+const SAFE_COMMANDS = safeCommands;
 
 function resolveUserId(user) {
   const storedUser = localStorage.getItem("cyberlab_user");

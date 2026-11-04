@@ -14,8 +14,10 @@ services:
     ports:
       - "127.0.0.1:${MITM_PORT:-8086}:5000"
     networks:
-      - mitm_net
-      - mitm_lab_edge
+      mitm_net:
+        aliases:
+          - mitm-lab
+      mitm_lab_edge: {}
     mem_limit: 256M
     cpus: "0.50"
     pids_limit: 100
@@ -33,7 +35,8 @@ services:
 
   mitm-attacker:
     build:
-      context: ../common/attacker
+      context: ../common
+      dockerfile: attacker/Dockerfile
     image: cyberlab-attacker:1
     user: root
     networks:

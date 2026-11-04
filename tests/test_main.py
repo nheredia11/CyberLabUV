@@ -106,3 +106,22 @@ def test_runner_unallowed_command():
     success, message = asyncio.run(run_test())
     assert success is False
     assert "no permitido" in message.lower() or "bloqueado" in message.lower() or "vacío" in message.lower()
+
+def test_survey_roundtrip_and_metrics(client):
+    """Regresión: guardar encuestas fallaba con 500 (ON CONFLICT sin índice único)."""
+    student = {"Authorization": "Bearer " + create_session("est_survey", "student", "e@uv.edu.co")}
+    teacher = {"Authorization": "Bearer " + create_session("doc_survey", "teacher", "dev@uv.edu.co")}
+
+    assert client.post("/api/consent", json={"accepted": True}, headers=student).status_code == 200
+
+    body = {"student_id": "x", "module_id": "S01", "responses": {"q1": 4}, "rating": 4, "comments": "ok"}
+    assert client.post("/api/surveys/submit", json=body, headers=student).status_code == 200
+    # Reenviar actualiza (upsert), no duplica ni falla
+    body["rating"] = 2
+    assert client.post("/api/surveys/submit", json=body, headers=student).status_code == 200
+
+    m = client.get("/api/teacher/survey-metrics", headers=teacher).json()
+    assert m["total_responses"] == 1
+    assert m["modules"][0] == {"module_id": "S01", "responses": 1, "avg_rating": 2.0}
+
+    assert client.get("/api/teacher/survey-metrics", headers=student).status_code == 403

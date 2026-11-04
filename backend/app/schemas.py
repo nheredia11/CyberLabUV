@@ -141,3 +141,15 @@ class ScenarioActionResponse(BaseModel):
     message: str
     local_url: str | None = None
     session_id: str | None = None
+
+
+class SurveyModuleMetric(BaseModel):
+    module_id: str
+    responses: int
+    avg_rating: float | None = None
+
+
+class SurveyMetricsResponse(BaseModel):
+    status: str
+    total_responses: int
+    modules: list[SurveyModuleMetric]

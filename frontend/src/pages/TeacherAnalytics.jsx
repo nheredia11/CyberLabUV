@@ -1,5 +1,28 @@
 import { useState, useEffect } from "react";
+import { createTeacherNote, getSurveyMetrics, getTeacherAnalytics } from "../lib/api";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+// El backend devuelve una fila por checkpoint; el panel trabaja por (estudiante, módulo).
+function groupSubmissions(rows) {
+  const groups = new Map();
+  rows.forEach((row) => {
+    const key = `${row.user_id}::${row.module_id}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        id: key,
+        student_id: row.user_id,
+        module_id: row.module_id,
+        status: "completed",
+        answers: {},
+        feedback: "",
+      });
+    }
+    const group = groups.get(key);
+    group.answers[row.checkpoint_id] = row.evidence || "(sin evidencia)";
+    if (row.status !== "done") group.status = "pending_review";
+  });
+  return Array.from(groups.values());
+}
 
 export default function TeacherAnalytics({ onBack }) {
   const [submissions, setSubmissions] = useState([]);
@@ -7,6 +30,8 @@ export default function TeacherAnalytics({ onBack }) {
   const [feedbackText, setFeedbackText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [surveyMetrics, setSurveyMetrics] = useState([]);
   const [activeTab, setActiveTab] = useState("evidences");
   
   // Estado para manejar notificaciones en pantalla en lugar de alerts
@@ -18,47 +43,23 @@ export default function TeacherAnalytics({ onBack }) {
 
   const fetchSubmissions = async () => {
     setLoading(true);
+    setLoadError("");
     try {
-      const response = await fetch("http://localhost:8000/api/progress/", {
-        headers: { "Content-Type": "application/json", "x-cyberlab-token": "dev-token-secret" }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSubmissions(data);
-      } else {
-        loadMockData();
-      }
+      const [analytics, metrics] = await Promise.all([getTeacherAnalytics(), getSurveyMetrics()]);
+      setSubmissions(groupSubmissions(analytics?.analytics?.submissions || []));
+      setSurveyMetrics(
+        (metrics?.modules || []).map((m) => ({
+          name: m.module_id,
+          score: m.avg_rating ?? 0,
+          respuestas: m.responses,
+        })),
+      );
     } catch (error) {
-      loadMockData();
+      // No se muestran datos de ejemplo: un panel docente debe reflejar solo datos reales.
+      setLoadError(error.message || "No se pudieron cargar los datos del panel.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadMockData = () => {
-    setSubmissions([
-      {
-        id: "1",
-        student_id: "student-local-01",
-        module_id: "S01",
-        status: "completed",
-        answers: {
-          "recon-cp-1": "Werkzeug httpd 2.2.2 (Python 3.10.8)",
-          "recon-cp-2": "Puerto 5000 abierto"
-        },
-        feedback: ""
-      },
-      {
-        id: "2",
-        student_id: "juan.perez@correounivalle.edu.co",
-        module_id: "S02",
-        status: "pending_review",
-        answers: {
-          "auth-cp-1": "admin / password123",
-        },
-        feedback: ""
-      }
-    ]);
   };
 
   const showNotification = (type, message) => {
@@ -72,8 +73,12 @@ export default function TeacherAnalytics({ onBack }) {
     if (!selectedSubmission || !feedbackText.trim()) return;
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
+      await createTeacherNote({
+        student_id: selectedSubmission.student_id,
+        module_id: selectedSubmission.module_id,
+        body: feedbackText.trim(),
+      });
+
       const updatedSubmissions = submissions.map(sub => 
         sub.id === selectedSubmission.id ? { ...sub, feedback: feedbackText } : sub
       );
@@ -90,18 +95,24 @@ export default function TeacherAnalytics({ onBack }) {
     }
   };
 
-  const surveyMetrics = [
-    { name: 'Claridad Teórica', score: 4.6 },
-    { name: 'Estabilidad Docker', score: 4.8 },
-    { name: 'Utilidad del Lab', score: 4.9 },
-    { name: 'Dificultad Reto', score: 3.5 },
-  ];
 
   if (loading) {
     return (
       <main className="learning-route-page">
         <section className="learning-loading">
           <h2>Cargando panel docente...</h2>
+        </section>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="learning-route-page">
+        <section className="learning-loading" role="alert">
+          <h2>No se pudo cargar el panel docente</h2>
+          <p>{loadError}</p>
+          <button onClick={fetchSubmissions}>Reintentar</button>
         </section>
       </main>
     );
@@ -237,10 +248,13 @@ export default function TeacherAnalytics({ onBack }) {
         <section style={{ flex: 1, background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '30px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ marginBottom: '30px' }}>
             <h2 style={{ color: '#c9d1d9', margin: 0 }}>Resultados de Encuestas Estudiantiles</h2>
-            <p style={{ color: '#8b949e', marginTop: '5px' }}>Promedios obtenidos en la escala Likert (1 a 5) tras la finalización de las prácticas.</p>
+            <p style={{ color: '#8b949e', marginTop: '5px' }}>Promedio de calificación (1 a 5) por módulo, calculado con las respuestas reales de los estudiantes.</p>
           </div>
           
           <div style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', padding: '20px' }}>
+            {surveyMetrics.length === 0 ? (
+              <p style={{ color: '#8b949e' }}>Aún no hay encuestas respondidas. Los promedios aparecerán cuando los estudiantes completen las encuestas del piloto.</p>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={surveyMetrics} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
@@ -255,6 +269,7 @@ export default function TeacherAnalytics({ onBack }) {
                 <Bar dataKey="score" name="Promedio (1-5)" fill="#2ea043" radius={[4, 4, 0, 0]} barSize={60} />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
         </section>
       )}
