@@ -23,19 +23,19 @@ from fastapi import APIRouter
 
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
-from ..schemas import SurveyMetricsResponse
+from ..schemas import TeacherNoteRequest, SurveyMetricsResponse
 from ..storage import get_survey_metrics
 
 router = APIRouter()
 
 
 @router.post("/api/teacher/notes")
-async def create_teacher_note(payload: dict, teacher: dict[str, Any] = Depends(require_teacher_role)):
+async def create_teacher_note(payload: TeacherNoteRequest, teacher: dict[str, Any] = Depends(require_teacher_role)):
     note_data = {
         "teacher_id": teacher["user_id"],
-        "student_id": payload.get("student_id"),
-        "module_id": payload.get("module_id", "general"),
-        "body": payload.get("body", "")
+        "student_id": payload.student_id,
+        "module_id": payload.module_id,
+        "body": payload.body.strip(),
     }
     saved = save_note(note_data)
     return {"status": "ok", "message": "Nota guardada exitosamente", "note": saved}

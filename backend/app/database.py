@@ -200,6 +200,17 @@ def get_active_session(user_id: str, scenario_slug: str) -> Optional[Dict[str, A
         session_dict["assigned_ports"] = json.loads(session_dict["assigned_ports"])
         return session_dict
 
+def count_running_sessions(user_id: str | None = None) -> int:
+    """Cuenta sesiones de práctica en ejecución (de un estudiante o en total)."""
+    query = "SELECT COUNT(*) AS n FROM practice_sessions WHERE status = 'running'"
+    params: tuple = ()
+    if user_id is not None:
+        query += " AND user_id = ?"
+        params = (user_id,)
+    with connect() as conn:
+        return conn.execute(query, params).fetchone()["n"]
+
+
 def get_session_by_id(session_id: str) -> Optional[Dict[str, Any]]:
     """Busca una sesión por su UUID completo."""
     with connect() as conn:

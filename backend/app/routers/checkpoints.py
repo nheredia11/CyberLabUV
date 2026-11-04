@@ -20,6 +20,8 @@ from fastapi import APIRouter
 
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
+from ..content import load_module
+
 router = APIRouter()
 
 
@@ -28,6 +30,11 @@ async def submit_checkpoint(submission: CheckpointSubmission, current_user: dict
     token_user_id = current_user.get("user_id")
     if current_user.get("role") != "teacher":
         submission.student_id = token_user_id
+
+    module = load_module(submission.module_id)
+    if not module or submission.checkpoint_id not in {cp.id for cp in module.checkpoints}:
+        raise HTTPException(status_code=422, detail="Módulo o checkpoint inexistente.")
+    submission.module_id = module.id  # forma canónica (p. ej. "S01")
 
     try:
         result = save_checkpoint(submission)

@@ -163,12 +163,6 @@ export function loginWithGoogle(credential) {
   });
 }
 
-export function getUsers(role = "") {
-  return request(`/api/users${buildQuery({ role })}`, {
-    method: "GET",
-  });
-}
-
 export function getModules() {
   return request("/api/modules", {
     method: "GET",
@@ -324,7 +318,6 @@ const api = {
   loginDemo,
   loginWithGoogle,
 
-  getUsers,
   getModules,
   getModuleById,
   getModule,
