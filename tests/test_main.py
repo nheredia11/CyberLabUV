@@ -90,7 +90,10 @@ def test_checkpoint_submit_and_dashboard(client):
     )
     assert res_dash.status_code == 200
     data = res_dash.json()
-    assert "modules" in data or "progress" in data or isinstance(data, dict)
+    assert data["student_id"] == "student_a"
+    assert data["general_percent"] > 0
+    s01 = next(m for m in data["modules"] if m["id"] == "S01")
+    assert s01["progress"]["completed_checkpoints"] == 1
 
 
 def test_runner_unallowed_command():

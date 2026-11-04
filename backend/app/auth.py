@@ -109,6 +109,15 @@ def get_current_user(
     }
 
 
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> dict[str, Any] | None:
+    """Usuario autenticado si hay token; None si la petición es anónima."""
+    if not credentials:
+        return None
+    return get_current_user(credentials)
+
+
 def require_teacher_role(
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> dict[str, Any]:
