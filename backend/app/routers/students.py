@@ -9,7 +9,7 @@ from fastapi.responses import Response
 from ..schemas import (
     StudentDashboard,
 )
-from ..content import load_catalog, load_all_modules
+from ..content import load_all_modules
 from ..storage import (
     get_student_dashboard,
 )
@@ -23,6 +23,7 @@ from fastapi import APIRouter
 
 logger = logging.getLogger("cyberlab")
 settings = get_settings()
+from ..dashboard import build_student_dashboard
 from ..reports import build_student_report_pdf
 
 router = APIRouter()
@@ -33,17 +34,7 @@ async def get_dashboard(student_id: str, current_user: dict = Depends(get_curren
     if current_user.get("role") != "teacher" and current_user.get("user_id") != student_id:
         raise HTTPException(status_code=403, detail="No autorizado para acceder a este dashboard")
     
-    dashboard = get_student_dashboard(student_id)
-    if not dashboard:
-        catalog = load_catalog()
-        return StudentDashboard(
-            student_id=student_id,
-            progress_percent=0.0,
-            completed_modules_count=0,
-            total_modules_count=len(catalog),
-            modules=[],
-        )
-    return dashboard
+    return build_student_dashboard(student_id)
 
 
 @router.get("/api/students/{student_id}/report")

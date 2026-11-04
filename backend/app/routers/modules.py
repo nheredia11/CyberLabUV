@@ -15,7 +15,9 @@ from ..storage import (
 )
 from ..auth import (
     get_current_user,
+    get_optional_user,
 )
+from ..dashboard import get_student_progress_state
 from ..config import get_settings
 
 from fastapi import APIRouter
@@ -33,12 +35,19 @@ async def list_modules():
 
 @router.get("/api/modules/{module_id}", response_model=ModuleDetail)
 @router.get("/api/catalog/{module_id}", response_model=ModuleDetail)
-async def get_module(module_id: str):
+async def get_module(module_id: str, current_user: dict | None = Depends(get_optional_user)):
     detail = load_module(module_id)
     if not detail:
         raise HTTPException(
             status_code=404, detail=f"Módulo {module_id} no encontrado"
         )
+    # El progreso se toma del token, nunca del user_id de la URL (evita ver datos de otro estudiante).
+    if current_user:
+        done, surveys = get_student_progress_state(current_user["user_id"])
+        done_ids = done.get(detail.id, set())
+        for checkpoint in detail.checkpoints:
+            checkpoint.completed = checkpoint.id in done_ids
+        detail.survey_completed = detail.id in surveys
     return detail
 
 
