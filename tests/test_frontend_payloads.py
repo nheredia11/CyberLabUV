@@ -9,6 +9,7 @@ import re
 import pytest
 
 import app.scenario_runner as r
+from helpers import FakeDocker
 from app.auth import create_session
 
 API_JS = pathlib.Path(__file__).resolve().parent.parent / "frontend" / "src" / "lib" / "api.js"
@@ -100,10 +101,7 @@ def test_teacher_note_validation(client):
 
 
 def test_session_limits_per_user_and_total(client, monkeypatch):
-    async def fake(cmd, cwd, env=None, timeout=180):
-        return 0, "ok", ""
-
-    monkeypatch.setattr(r, "_run_cmd_async", fake)
+    monkeypatch.setattr(r, "_run_cmd_async", FakeDocker())
     monkeypatch.setattr(r.settings, "max_sessions_per_user", 2, raising=False)
     monkeypatch.setattr(r.settings, "max_sessions_total", 3, raising=False)
     a = {"Authorization": "Bearer " + create_session("ua", "student", "ua@uv.edu.co")}

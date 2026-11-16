@@ -17,7 +17,7 @@ from .cleanup import cleanup_expired_sessions, start_cleanup_scheduler
 from .config import get_settings
 from .database import init_db
 from .routers import (
-    auth, checkpoints, consent, health, modules,
+    auth, checkpoints, consent, health, labs, modules,
     scenarios, students, surveys, teacher,
 )
 
@@ -62,7 +62,7 @@ app.add_middleware(
 
 
 # El orden importa solo dentro de un mismo router (p. ej. /command antes de /{action}).
-for _module in (health, auth, modules, surveys, checkpoints, teacher, students, scenarios, consent):
+for _module in (health, auth, modules, surveys, checkpoints, teacher, students, labs, scenarios, consent):
     app.include_router(_module.router)
 
 

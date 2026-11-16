@@ -139,6 +139,12 @@ function normalizeSurveyPayload(moduleId, payload = {}) {
   };
 }
 
+export function getLabLink(scenarioId) {
+  return request(`/api/scenarios/${encodeURIComponent(scenarioId)}/lab-link`, {
+    method: "POST",
+  });
+}
+
 export function getApiBase() {
   return API_BASE;
 }
@@ -328,6 +334,7 @@ const api = {
   submitSurvey,
 
   runScenarioAction,
+  getLabLink,
   scenarioAction,
   runTerminalCommand,
   terminalCommand,

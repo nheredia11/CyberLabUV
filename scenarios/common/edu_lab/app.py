@@ -6,8 +6,12 @@ import threading
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, redirect, render_template, request, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
+# El backend publica cada laboratorio bajo /labs/<sesión>/ y envía ese prefijo en
+# X-Forwarded-Prefix; así url_for, redirecciones y enlaces funcionan detrás del proxy.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
 
 SCENARIO_ID = os.getenv("SCENARIO_ID", "S00")
 LAB_MODE = os.getenv("LAB_MODE", "generic")
@@ -154,17 +158,36 @@ def add_event(kind: str, message: str, success: bool | None = None) -> None:
         del EVENTS[0]
 
 
+def _serve_banner(client: socket.socket, address: tuple, port: int, banner: str) -> None:
+    """Atiende una conexión. Un cliente que corta la conexión (p. ej. un escaneo de nmap)
+    no debe tumbar el servicio para los demás."""
+    try:
+        client.settimeout(5)
+        add_event("recon", f"Conexión recibida desde {address[0]}:{address[1]} en puerto interno {port}.")
+        client.sendall((banner + "\r\n").encode("utf-8"))
+    except OSError:
+        pass  # el cliente cerró antes de recibir el banner: es normal en un escaneo
+    finally:
+        try:
+            client.close()
+        except OSError:
+            pass
+
+
 def banner_server(port: int, banner: str) -> None:
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("0.0.0.0", port))
-    server.listen(5)
+    server.listen(64)
 
     while True:
-        client, address = server.accept()
-        add_event("recon", f"Conexión recibida desde {address[0]}:{address[1]} en puerto interno {port}.")
-        client.sendall((banner + "\r\n").encode("utf-8"))
-        client.close()
+        try:
+            client, address = server.accept()
+        except OSError:
+            continue
+        threading.Thread(
+            target=_serve_banner, args=(client, address, port, banner), daemon=True
+        ).start()
 
 
 def start_recon_services() -> None:

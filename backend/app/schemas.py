@@ -161,6 +161,7 @@ class ScenarioActionResponse(BaseModel):
     message: str
     local_url: str | None = None
     session_id: str | None = None
+    lab_path: str | None = None
 
 
 class SurveyModuleMetric(BaseModel):
@@ -184,3 +185,9 @@ class TeacherNoteRequest(BaseModel):
 class StatusMessageResponse(BaseModel):
     status: str
     message: str
+
+
+class LabLinkResponse(BaseModel):
+    """Enlace de un solo uso para abrir la página del laboratorio por el proxy del backend."""
+    lab_url: str
+    expires_in: int

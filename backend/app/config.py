@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
+import secrets
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,6 +43,19 @@ class Settings(BaseSettings):
         default=False,
         alias="ALLOW_SCENARIO_COMMANDS",
     )
+
+    # Firma de los enlaces a los laboratorios. Si no se define, se genera al arrancar
+    # (los enlaces abiertos dejan de valer al reiniciar el backend, lo cual es aceptable).
+    lab_link_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(32), alias="LAB_LINK_SECRET")
+
+    @field_validator("lab_link_secret", mode="after")
+    @classmethod
+    def _non_empty_secret(cls, value: str) -> str:
+        return value or secrets.token_urlsafe(32)
+    # Contenedor del backend (por defecto, su propio hostname dentro de Docker).
+    backend_container: str = Field(default="", alias="BACKEND_CONTAINER")
+    # Usar cookies "Secure" para los laboratorios (activar detrás de HTTPS).
+    secure_cookies: bool = Field(default=False, alias="SECURE_COOKIES")
 
     max_sessions_per_user: int = Field(default=2, alias="MAX_SESSIONS_PER_USER")
     max_sessions_total: int = Field(default=20, alias="MAX_SESSIONS_TOTAL")

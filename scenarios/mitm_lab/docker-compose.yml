@@ -12,7 +12,7 @@ services:
       LAB_MODE: mitm
       APP_TITLE: "CyberLab - MITM simulado en tráfico no cifrado"
     ports:
-      - "127.0.0.1:${MITM_PORT:-8086}:5000"
+      - "127.0.0.1:${MITM_PORT:-}:5000"
     networks:
       mitm_net:
         aliases:

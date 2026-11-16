@@ -55,7 +55,8 @@ def test_every_route_has_an_explicit_policy(client):
     assert protected == {
         "/api/checkpoints/submit", "/api/consent", "/api/modules/{module_id}/feedback",
         "/api/modules/{module_id}/surveys", "/api/scenarios/{scenario_id}/command",
-        "/api/scenarios/{scenario_id}/{action}", "/api/students/{student_id}/dashboard",
+        "/api/scenarios/{scenario_id}/{action}", "/api/scenarios/{scenario_id}/lab-link",
+        "/api/students/{student_id}/dashboard",
         "/api/students/{student_id}/report", "/api/students/{student_id}/report.pdf",
         "/api/surveys/responses", "/api/surveys/submit",
     }, "Hay rutas nuevas: clasifícalas en PUBLIC / TEACHER_ONLY / lista de protegidas."
@@ -122,3 +123,11 @@ def test_security_headers_present(client):
 def test_legacy_users_endpoint_is_gone(client, tokens):
     """Stub eliminado: devolvía usuarios inventados a cualquier sesión."""
     assert client.get("/api/users", headers=tokens["teacher"]).status_code == 404
+
+
+def test_dev_compose_reads_auth_settings_from_env_with_safe_defaults():
+    """Regresión: el compose fijaba ENABLE_DEV_LOGIN en "false" y el .env no tenía efecto."""
+    import pathlib
+    text = (pathlib.Path(__file__).resolve().parent.parent / "docker-compose.dev.yml").read_text(encoding="utf-8")
+    assert "ENABLE_DEV_LOGIN: ${ENABLE_DEV_LOGIN:-false}" in text      # apagado salvo que .env lo active
+    assert "TEACHER_EMAILS: ${TEACHER_EMAILS:-" in text

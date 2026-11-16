@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ app_title }}</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="{{ request.script_root }}/static/styles.css">
 </head>
 
 <body>
@@ -18,8 +18,8 @@
       </p>
 
       <div class="links">
-        <a href="/health" target="_blank">Ver /health</a>
-        <a href="/events" target="_blank">Ver eventos JSON</a>
+        <a href="{{ request.script_root }}/health" target="_blank">Ver /health</a>
+        <a href="{{ request.script_root }}/events" target="_blank">Ver eventos JSON</a>
       </div>
     </section>
 
@@ -89,7 +89,7 @@
       <section class="grid">
         <article class="card">
           <h2>Búsqueda didáctica SQLi</h2>
-          <form method="get" action="/web/search" target="_blank">
+          <form method="get" action="{{ request.script_root }}/web/search" target="_blank">
             <label>
               Consulta
               <input name="q" placeholder="Buscar usuario de laboratorio">
@@ -100,7 +100,7 @@
 
         <article class="card">
           <h2>Comentario para XSS controlado</h2>
-          <form method="post" action="/web/comment">
+          <form method="post" action="{{ request.script_root }}/web/comment">
             <label>
               Comentario
               <textarea name="comment" placeholder="Escribe un comentario de laboratorio"></textarea>
@@ -111,7 +111,7 @@
 
         <article class="card">
           <h2>Directory Traversal controlado</h2>
-          <form method="get" action="/web/file" target="_blank">
+          <form method="get" action="{{ request.script_root }}/web/file" target="_blank">
             <label>
               Archivo
               <input name="name" value="readme.txt">
@@ -133,6 +133,49 @@
       </section>
     {% endif %}
     
+    {% if lab_mode == "auth_http" %}
+      <section class="grid">
+        <article class="card">
+          <h2>Portal con autenticación HTTP</h2>
+          <p>
+            Formulario de inicio de sesión sin bloqueo de intentos ni límite de velocidad.
+            Usuario de laboratorio: <code>{{ demo_user }}</code>.
+          </p>
+
+          {% if request.args.get("auth") == "ok" %}
+            <p><strong>Acceso concedido.</strong> Las credenciales fueron aceptadas.</p>
+          {% elif request.args.get("auth") == "fail" %}
+            <p><strong>Acceso denegado.</strong> Usuario o contraseña incorrectos.</p>
+          {% endif %}
+
+          <form method="post" action="{{ request.script_root }}/auth-http/login">
+            <label>
+              Usuario
+              <input name="username" placeholder="Usuario">
+            </label>
+
+            <label>
+              Contraseña
+              <input name="password" type="password" placeholder="Contraseña">
+            </label>
+
+            <button>Iniciar sesión</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h2>Controles a discutir</h2>
+          <ul>
+            <li>Límite de intentos por usuario y por IP</li>
+            <li>Retardo progresivo y CAPTCHA tras fallos</li>
+            <li>Mensajes de error genéricos</li>
+            <li>Autenticación multifactor</li>
+            <li>Registro y alertas de intentos fallidos</li>
+          </ul>
+        </article>
+      </section>
+    {% endif %}
+
     {% if lab_mode == "auth_services" %}
       <section class="grid">
         <article class="card">
@@ -142,7 +185,7 @@
             simulados. Usuario de laboratorio: <code>{{ demo_user }}</code>.
           </p>
 
-          <form method="post" action="/auth/login">
+          <form method="post" action="{{ request.script_root }}/auth/login">
             <label>
               Servicio
               <select name="service">
@@ -187,7 +230,7 @@
             puede ver mensajes no cifrados. Es una simulación pedagógica, no un MITM real.
           </p>
 
-          <form method="post" action="/mitm/send">
+          <form method="post" action="{{ request.script_root }}/mitm/send">
             <label>
               Emisor
               <input name="sender" value="cliente">

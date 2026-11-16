@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
+import json
 import os
-import socket
 import uuid
 import logging
 import re
@@ -12,6 +12,7 @@ from typing import Dict, Tuple, Optional
 from datetime import datetime, timedelta, timezone
 
 from .config import get_settings
+from .lab_access import edge_network, lab_path, own_container_id, running_in_container
 from .database import count_running_sessions, create_practice_session, get_active_session, update_session_status
 
 logger = logging.getLogger("cyberlab")
@@ -26,21 +27,22 @@ class ScenarioDefinition:
     default_port: int
     env_port_var: str
     attacker_service: str
+    lab_service: str
 
 SCENARIOS: Dict[str, ScenarioDefinition] = {
-    "S01": ScenarioDefinition("S01", "recon", "scenarios/recon/docker-compose.yml", "Reconocimiento de red", 8083, "RECON_PORT", "recon-attacker"),
-    "S02": ScenarioDefinition("S02", "auth_http", "scenarios/auth_http/docker-compose.yml", "Autenticación HTTP", 8081, "AUTH_HTTP_PORT", "auth-attacker"),
-    "S03": ScenarioDefinition("S03", "web_owasp", "scenarios/web_owasp/docker-compose.yml", "Prácticas OWASP", 8084, "OWASP_PORT", "web_owasp-attacker"),
-    "S04": ScenarioDefinition("S04", "auth_services", "scenarios/auth_services/docker-compose.yml", "Autenticación SSH/FTP", 8085, "AUTH_SERVICES_PORT", "auth_services-attacker"),
-    "S05": ScenarioDefinition("S05", "mitm_lab", "scenarios/mitm_lab/docker-compose.yml", "MITM en tráfico no cifrado", 8086, "MITM_PORT", "mitm-attacker"),
+    "S01": ScenarioDefinition("S01", "recon", "scenarios/recon/docker-compose.yml", "Reconocimiento de red", 8083, "RECON_PORT", "recon-attacker", "recon-lab"),
+    "S02": ScenarioDefinition("S02", "auth_http", "scenarios/auth_http/docker-compose.yml", "Autenticación HTTP", 8081, "AUTH_HTTP_PORT", "auth-attacker", "auth-lab"),
+    "S03": ScenarioDefinition("S03", "web_owasp", "scenarios/web_owasp/docker-compose.yml", "Prácticas OWASP", 8084, "OWASP_PORT", "web_owasp-attacker", "web_owasp-lab"),
+    "S04": ScenarioDefinition("S04", "auth_services", "scenarios/auth_services/docker-compose.yml", "Autenticación SSH/FTP", 8085, "AUTH_SERVICES_PORT", "auth_services-attacker", "auth_services-lab"),
+    "S05": ScenarioDefinition("S05", "mitm_lab", "scenarios/mitm_lab/docker-compose.yml", "MITM en tráfico no cifrado", 8086, "MITM_PORT", "mitm-attacker", "mitm-lab"),
 }
 
-def find_free_port(start_port: int = 8100, max_tries: int = 200) -> int:
-    for port in range(start_port, start_port + max_tries):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(('127.0.0.1', port)) != 0:
-                return port
-    raise RuntimeError("No hay puertos disponibles en el host")
+def parse_published_port(output: str) -> int | None:
+    """Extrae el puerto de la salida de `docker compose port` (p. ej. '127.0.0.1:49153')."""
+    lines = output.strip().splitlines()
+    match = re.search(r":(\d{2,5})\s*$", lines[0]) if lines else None
+    return int(match.group(1)) if match else None
+
 
 async def _run_cmd_async(
     cmd: list[str],
@@ -92,23 +94,28 @@ async def start_scenario_session(user_id: str, scenario_id: str, duration_minute
 
     session_id = str(uuid.uuid4())[:8]
     project_name = f"session_{session_id}"
-    allocated_port = find_free_port()
-
     env = os.environ.copy()
-    env[scenario.env_port_var] = str(allocated_port)
-
     compose_path = settings.root_dir / scenario.compose_file
-    cmd = [
-        "docker", "compose", 
-        "-p", project_name, 
-        "-f", str(compose_path), 
-        "up", "-d", "--build"
-    ]
+    base = ["docker", "compose", "-p", project_name, "-f", str(compose_path)]
 
-    returncode, stdout, stderr = await _run_cmd_async(cmd, cwd=settings.root_dir, env=env)
+    async def rollback() -> None:
+        await teardown_project(project_name, scenario)
 
+    # El puerto del host lo elige Docker (ports: "127.0.0.1::5000"). El backend corre dentro de un
+    # contenedor y no puede saber qué puertos usa el host, así que no intentamos adivinarlo.
+    returncode, stdout, stderr = await _run_cmd_async(base + ["up", "-d", "--build"], cwd=settings.root_dir, env=env)
     if returncode != 0:
+        await rollback()  # no dejar contenedores ni redes a medias
         return False, f"Error al desplegar escenario: {stderr[-500:]}", {}
+
+    rc, port_out, port_err = await _run_cmd_async(
+        base + ["port", scenario.lab_service, "5000"], cwd=settings.root_dir, env=env
+    )
+    allocated_port = parse_published_port(port_out) if rc == 0 else None
+    if allocated_port is None:
+        logger.error("No se pudo leer el puerto publicado de %s: %s %s", scenario.lab_service, port_out, port_err)
+        await rollback()
+        return False, "El escenario arrancó pero no se pudo obtener su puerto. Intenta de nuevo.", {}
 
     try:
         expires_at = (datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)).isoformat()
@@ -121,17 +128,78 @@ async def start_scenario_session(user_id: str, scenario_id: str, duration_minute
             assigned_ports=assigned_ports,
             expires_at=expires_at
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Fallo al guardar la sesión en SQLite, realizando rollback de Docker")
-        cleanup_cmd = ["docker", "compose", "-p", project_name, "-f", str(compose_path), "down", "-v", "--remove-orphans"]
-        await _run_cmd_async(cleanup_cmd, cwd=settings.root_dir, env=env)
+        await rollback()
         return False, "Error interno al registrar la sesión de práctica.", {}
+
+    await attach_backend(project_name, scenario)
 
     return True, "Escenario desplegado exitosamente", {
         "session_id": session_id,
         "local_url": f"http://127.0.0.1:{allocated_port}",
+        "lab_path": lab_path(session_id),
         "status": "running"
     }
+
+def _compose_base(project_name: str, scenario: "ScenarioDefinition") -> list[str]:
+    return ["docker", "compose", "-p", project_name, "-f", str(settings.root_dir / scenario.compose_file)]
+
+
+async def attach_backend(project_name: str, scenario: "ScenarioDefinition") -> None:
+    """Si el backend corre en Docker, lo conecta a la red no interna del laboratorio
+    para poder servir su página por el proxy /labs/<sesión>/."""
+    if not running_in_container():
+        return  # en el host, las IP de las redes bridge ya son alcanzables
+    rc, _, err = await _run_cmd_async(
+        ["docker", "network", "connect", edge_network(project_name, scenario.slug), own_container_id()],
+        cwd=settings.root_dir,
+    )
+    if rc != 0 and "already exists" not in err:
+        logger.warning("No se pudo conectar el backend a la red del laboratorio: %s", err[-300:])
+
+
+async def teardown_project(project_name: str, scenario: "ScenarioDefinition") -> tuple[int, str]:
+    """Apaga una sesión: desconecta el backend de su red (si no, la red no se puede borrar)
+    y ejecuta `down -v --remove-orphans`. Lo usan la parada manual, el rollback y la limpieza."""
+    _lab_targets.pop(project_name, None)
+    if running_in_container():
+        await _run_cmd_async(
+            ["docker", "network", "disconnect", "-f", edge_network(project_name, scenario.slug), own_container_id()],
+            cwd=settings.root_dir,
+        )
+    rc, _, err = await _run_cmd_async(
+        _compose_base(project_name, scenario) + ["down", "-v", "--remove-orphans"], cwd=settings.root_dir, env=os.environ.copy()
+    )
+    return rc, err
+
+
+_lab_targets: dict[str, str] = {}
+
+
+async def resolve_lab_target(project_name: str, scenario: "ScenarioDefinition") -> str | None:
+    """URL base (http://IP:5000) del laboratorio en su red no interna."""
+    if project_name in _lab_targets:
+        return _lab_targets[project_name]
+    rc, cid, _ = await _run_cmd_async(
+        _compose_base(project_name, scenario) + ["ps", "-q", scenario.lab_service], cwd=settings.root_dir
+    )
+    cid = cid.strip().splitlines()[0] if rc == 0 and cid.strip() else ""
+    if not cid:
+        return None
+    rc, out, _ = await _run_cmd_async(
+        ["docker", "inspect", "-f", "{{json .NetworkSettings.Networks}}", cid], cwd=settings.root_dir
+    )
+    try:
+        networks = json.loads(out) if rc == 0 else {}
+    except json.JSONDecodeError:
+        networks = {}
+    ip = (networks.get(edge_network(project_name, scenario.slug)) or {}).get("IPAddress")
+    if not ip:
+        return None
+    _lab_targets[project_name] = f"http://{ip}:5000"
+    return _lab_targets[project_name]
+
 
 async def stop_scenario_session(user_id: str, scenario_id: str) -> Tuple[bool, str]:
     normalized_id = scenario_id.upper()
@@ -144,10 +212,7 @@ async def stop_scenario_session(user_id: str, scenario_id: str) -> Tuple[bool, s
         return True, "No había sesión activa para detener"
 
     project_name = active["docker_project_name"]
-    compose_path = settings.root_dir / scenario.compose_file
-    
-    cmd = ["docker", "compose", "-p", project_name, "-f", str(compose_path), "down", "-v", "--remove-orphans"]
-    returncode, _, stderr = await _run_cmd_async(cmd, cwd=settings.root_dir, env=os.environ.copy())
+    returncode, stderr = await teardown_project(project_name, scenario)
 
     if returncode == 0:
         update_session_status(active["id"], "stopped")
@@ -247,6 +312,8 @@ async def run_scenario_command(user_id: str, scenario_id: str, command: str) -> 
     )
     if returncode == -1:
         return False, stderr
+    if "is not running" in stderr:
+        return False, "El escenario se está iniciando o reiniciando. Espera unos segundos y vuelve a intentarlo."
     output = (stdout + ("\n" + stderr if stderr else "")).strip()
     # Herramientas como hydra o nmap devuelven código != 0 en resultados válidos
     # (sin credenciales encontradas, host caído). Se muestra la salida al estudiante.

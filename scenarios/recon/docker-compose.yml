@@ -12,7 +12,7 @@ services:
       LAB_MODE: recon
       APP_TITLE: "CyberLab - Reconocimiento de Red y Puertos"
     ports:
-      - "127.0.0.1:${RECON_PORT:-8083}:5000"
+      - "127.0.0.1:${RECON_PORT:-}:5000"
     networks:
       recon_net:
         aliases:

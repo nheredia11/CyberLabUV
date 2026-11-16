@@ -187,6 +187,25 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LabLinkResponse": {
+        "description": "Enlace de un solo uso para abrir la página del laboratorio por el proxy del backend.",
+        "properties": {
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "lab_url": {
+            "title": "Lab Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lab_url",
+          "expires_in"
+        ],
+        "title": "LabLinkResponse",
+        "type": "object"
+      },
       "LoginDemoRequest": {
         "properties": {
           "email": {
@@ -319,6 +338,17 @@
           "action": {
             "title": "Action",
             "type": "string"
+          },
+          "lab_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Path"
           },
           "local_url": {
             "anyOf": [
@@ -1167,6 +1197,50 @@
           }
         ],
         "summary": "Handle Scenario Command"
+      }
+    },
+    "/api/scenarios/{scenario_id}/lab-link": {
+      "post": {
+        "operationId": "create_lab_link_api_scenarios__scenario_id__lab_link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabLinkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Lab Link"
       }
     },
     "/api/scenarios/{scenario_id}/{action}": {

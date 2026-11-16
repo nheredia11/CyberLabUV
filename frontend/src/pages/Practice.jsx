@@ -1,6 +1,8 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import safeCommands from "../content/safeCommands.json";
 import {
+  getApiBase,
+  getLabLink,
   runScenarioAction,
   runTerminalCommand,
 } from "../lib/api";
@@ -76,7 +78,7 @@ export default function Practice({
       .then((res) => {
         if (!cancelled && res?.status === "running" && res.local_url) {
           setDynamicLabUrl(res.local_url);
-          appendToConsole(`Sesión activa recuperada: ${res.local_url}`);
+          appendToConsole("Sesión activa recuperada.");
         }
       })
       .catch(() => {});
@@ -138,7 +140,7 @@ export default function Practice({
       // Si se inició correctamente, guardamos la URL dinámica devuelta por el backend
       if (action === "start" && response.local_url) {
         setDynamicLabUrl(response.local_url);
-        appendToConsole(`🌐 URL del laboratorio activa: ${response.local_url}`);
+        appendToConsole("🌐 Laboratorio listo. Ábrelo con el botón «Abrir aplicación vulnerable».");
       } else if (action === "stop" || action === "reset") {
         setDynamicLabUrl(null);
       }
@@ -153,11 +155,35 @@ export default function Practice({
     }
   }
 
+  // El laboratorio se abre por el proxy del backend (/labs/<sesión>/), con un enlace firmado
+  // de un solo uso. Funciona igual en local y en un servidor remoto.
+  async function openLab() {
+    // La pestaña se abre en el clic (antes del await) para que el navegador no la bloquee.
+    const tab = window.open("", "_blank");
+    try {
+      const { lab_url: labUrl } = await getLabLink(scenarioId);
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = `${getApiBase()}${labUrl}`;
+      } else {
+        window.location.assign(`${getApiBase()}${labUrl}`);
+      }
+    } catch (error) {
+      if (tab) tab.close();
+      appendToConsole(error.message || "No se pudo abrir el laboratorio.", false, true);
+    }
+  }
+
   async function handleTerminalCommand(commandValue) {
     const command = commandValue?.trim();
 
     if (!command) {
       appendToConsole("Debes seleccionar o escribir un comando.", false, true);
+      return;
+    }
+
+    if (loadingAction) {
+      appendToConsole("Espera a que termine la acción del escenario antes de ejecutar comandos.", false, true);
       return;
     }
 
@@ -260,36 +286,34 @@ export default function Practice({
                   opacity: loadingAction ? 0.7 : 1
                 }}
                 onClick={() => handleScenarioAction(action)}
-                disabled={Boolean(loadingAction)}
+                disabled={Boolean(loadingAction) || loadingCommand}
               >
                 {loadingAction === action ? "⏳" : getActionLabel(action)}
               </button>
             ))}
           </div>
 
-          <a
+          <button
+            type="button"
             className="open-lab-button"
-            href={dynamicLabUrl || "#"}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => {
-              if (!dynamicLabUrl) e.preventDefault();
-            }}
+            onClick={openLab}
+            disabled={!dynamicLabUrl || Boolean(loadingAction)}
             style={{ 
               display: 'block', 
+              width: '100%',
               textAlign: 'center', 
               padding: '10px', 
               background: dynamicLabUrl ? '#1f6feb' : '#21262d', 
               color: dynamicLabUrl ? '#fff' : '#8b949e', 
-              textDecoration: 'none', 
+              border: 'none',
               borderRadius: '6px', 
               fontWeight: 'bold',
-              pointerEvents: dynamicLabUrl ? 'auto' : 'none',
+              cursor: dynamicLabUrl ? 'pointer' : 'not-allowed',
               opacity: dynamicLabUrl ? 1 : 0.6
             }}
           >
             {dynamicLabUrl ? "🌐 Abrir aplicación vulnerable" : "🔒 Inicia el escenario para abrir"}
-          </a>
+          </button>
         </article>
 
         {/* PANEL DE COMANDOS */}
@@ -320,7 +344,7 @@ export default function Practice({
               <button
                 type="button"
                 onClick={() => handleTerminalCommand(selectedCommand)}
-                disabled={loadingCommand || !selectedCommand || !dynamicLabUrl}
+                disabled={loadingCommand || Boolean(loadingAction) || !selectedCommand || !dynamicLabUrl}
                 style={{ padding: '10px 15px', background: '#2ea043', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
               >
                 {loadingCommand ? "..." : "Ejecutar"}
@@ -340,7 +364,7 @@ export default function Practice({
               <button
                 type="button"
                 onClick={() => handleTerminalCommand(customCommand)}
-                disabled={loadingCommand || !customCommand.trim() || !dynamicLabUrl}
+                disabled={loadingCommand || Boolean(loadingAction) || !customCommand.trim() || !dynamicLabUrl}
                 style={{ padding: '10px 15px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer' }}
               >
                 Lanzar
