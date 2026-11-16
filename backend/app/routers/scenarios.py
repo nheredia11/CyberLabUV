@@ -11,6 +11,7 @@ from ..auth import (
 from ..database import get_active_session
 from ..scenario_runner import SCENARIOS, start_scenario_session, stop_scenario_session, run_scenario_command
 from ..config import get_settings
+from ..lab_access import lab_path
 
 from fastapi import APIRouter
 from ..ratelimit import check_user_rate_limit
@@ -71,7 +72,8 @@ async def handle_scenario_action(scenario_id: str, action: str, current_user: di
                 "status": "running",
                 "message": "Sesión activa encontrada",
                 "local_url": f"http://127.0.0.1:{web_port}",
-                "session_id": active["id"]
+                "session_id": active["id"],
+                "lab_path": lab_path(active["id"]),
             }
         return {
             "scenario_id": scenario_id.upper(),

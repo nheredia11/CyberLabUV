@@ -1,10 +1,8 @@
 import asyncio
 import logging
-import os
 
-from .config import get_settings
 from .database import get_expired_running_sessions, update_session_status
-from .scenario_runner import SCENARIOS, _run_cmd_async
+from .scenario_runner import SCENARIOS, teardown_project
 
 logger = logging.getLogger("cyberlabuv.cleanup")
 
@@ -27,19 +25,7 @@ async def cleanup_expired_sessions() -> int:
             update_session_status(session_id, "expired")
             continue
 
-        compose_path = get_settings().root_dir / scenario.compose_file
-        cmd = [
-            "docker", "compose",
-            "-p", project_name,
-            "-f", str(compose_path),
-            "down", "-v", "--remove-orphans"
-        ]
-
-        returncode, _, stderr = await _run_cmd_async(
-            cmd,
-            cwd=get_settings().root_dir,
-            env=os.environ.copy()
-        )
+        returncode, stderr = await teardown_project(project_name, scenario)
 
         # Siempre marcamos como expired para no reintentar infinitamente
         update_session_status(session_id, "expired")

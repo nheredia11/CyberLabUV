@@ -9,6 +9,7 @@ import pathlib
 import re
 
 from app.auth import create_session
+from helpers import FakeDocker
 from app.main import app
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -63,10 +64,7 @@ def test_scenario_responses_have_declared_fields(client, monkeypatch):
 
     monkeypatch.setattr(r.settings, "allow_scenario_commands", True, raising=False)
 
-    async def fake(cmd, cwd, env=None, timeout=180):
-        return 0, "salida\n", ""
-
-    monkeypatch.setattr(r, "_run_cmd_async", fake)
+    monkeypatch.setattr(r, "_run_cmd_async", FakeDocker(exec_stdout="salida\n"))
     h = {"Authorization": "Bearer " + create_session("contract_user", "student", "c@uv.edu.co")}
 
     start = client.post("/api/scenarios/S01/start", json={}, headers=h).json()

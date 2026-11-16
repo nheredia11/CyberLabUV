@@ -38,7 +38,7 @@ async def submit_checkpoint(submission: CheckpointSubmission, current_user: dict
 
     try:
         result = save_checkpoint(submission)
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=422, detail="Datos de checkpoint inválidos o no cumplen con la validación.")
     except Exception as e:
         logger.exception("Error interno al registrar checkpoint: %s", e)

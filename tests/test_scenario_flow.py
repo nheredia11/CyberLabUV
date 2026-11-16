@@ -1,13 +1,12 @@
 from app.auth import create_session
+from helpers import FakeDocker
 
 def test_scenario_start_stop_flow(client, monkeypatch):
     import app.scenario_runner as r
     # r.settings se fija al importar el módulo; se fuerza la ejecución real (con Docker simulado).
     monkeypatch.setattr(r.settings, "allow_scenario_commands", True, raising=False)
     
-    async def fake(cmd, cwd, env=None, timeout=180):
-        return 0, "ok\n", ""
-    monkeypatch.setattr(r, "_run_cmd_async", fake)
+    monkeypatch.setattr(r, "_run_cmd_async", FakeDocker())
     
     h = {"Authorization": "Bearer " + create_session("student_a", "student", "a@uv.edu.co")}
     
