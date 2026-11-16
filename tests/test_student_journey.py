@@ -2,11 +2,11 @@
 
 Es la prueba que detecta los desajustes entre lo que calcula el backend y lo que muestra la interfaz.
 """
-import json
 import pathlib
 import re
 
 import app.scenario_runner as r
+from helpers import FakeDocker
 from app.schemas import DashboardModule, ModuleProgressView, StudentDashboard
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -23,10 +23,7 @@ def _login(client, role="student", email="estudiante@uv.edu.co"):
 def test_student_full_journey(client, monkeypatch):
     monkeypatch.setattr(r.settings, "allow_scenario_commands", True, raising=False)
 
-    async def fake(cmd, cwd, env=None, timeout=180):
-        return 0, "22/tcp open ssh\n", ""
-
-    monkeypatch.setattr(r, "_run_cmd_async", fake)
+    monkeypatch.setattr(r, "_run_cmd_async", FakeDocker(exec_stdout="22/tcp open ssh\n"))
     h, uid = _login(client)
 
     # 1. Estado inicial: sin progreso

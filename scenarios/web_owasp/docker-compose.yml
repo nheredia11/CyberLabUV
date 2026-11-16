@@ -12,7 +12,7 @@ services:
       LAB_MODE: web_owasp
       APP_TITLE: "CyberLab - Aplicación Web Vulnerable (OWASP)"
     ports:
-      - "127.0.0.1:${OWASP_PORT:-8084}:5000"
+      - "127.0.0.1:${OWASP_PORT:-}:5000"
     networks:
       web_owasp_net:
         aliases:

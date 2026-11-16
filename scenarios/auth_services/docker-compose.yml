@@ -12,7 +12,7 @@ services:
       LAB_MODE: auth_services
       APP_TITLE: "CyberLab - Servicios de Autenticación (SSH/FTP)"
     ports:
-      - "127.0.0.1:${AUTH_SERVICES_PORT:-8085}:5000"
+      - "127.0.0.1:${AUTH_SERVICES_PORT:-}:5000"
     networks:
       auth_services_net:
         aliases:
