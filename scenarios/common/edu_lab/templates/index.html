@@ -39,10 +39,10 @@
         </article>
 
         <article class="card">
-          <h2>Comando interno sugerido</h2>
-          <pre>docker compose -f scenarios/recon/docker-compose.yml exec recon-attacker nmap -sV recon-lab</pre>
+          <h2>Comando sugerido</h2>
+          <pre>nmap -sT -sV -p 2121,2222,5000 recon-lab</pre>
           <p>
-            Este comando solo debe ejecutarse contra el servicio interno del laboratorio.
+            Ejecútalo desde la terminal guiada de CyberLab. Solo debe dirigirse al servicio interno del laboratorio.
           </p>
         </article>
       </section>
@@ -63,7 +63,7 @@
         <article class="evidence-card">
           <span>Inicio del laboratorio</span>
           <p id="ev-start">
-            El laboratorio {{ scenario_id }} se encuentra activo en {{ public_url }} y el endpoint /health responde correctamente en el entorno local.
+            El laboratorio {{ scenario_id }} se encuentra activo ({{ lab_mode }}) y el endpoint /health responde correctamente en el entorno local.
           </p>
           <button type="button" class="copy-btn" data-copy-target="ev-start">Copiar evidencia</button>
         </article>
@@ -284,5 +284,7 @@
       {% endif %}
     </section>
   </main>
+  <div id="copy-toast" class="copy-toast" role="status" aria-live="polite"></div>
+  <script src="{{ request.script_root }}/static/lab.js"></script>
 </body>
 </html>

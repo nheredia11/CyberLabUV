@@ -150,3 +150,24 @@ def test_student_credentials_are_not_forwarded_to_the_lab(client, started, monke
     lowered = {k.lower() for k in seen}
     assert "authorization" not in lowered and "cookie" not in lowered
     assert seen["X-Forwarded-Prefix"] == f"/labs/{sid}"
+
+
+def test_lab_page_csp_allows_its_styles_but_not_inline_scripts(client, started):
+    """Regresión: la CSP global (default-src 'none') bloqueaba el CSS y el JS del laboratorio."""
+    h, sid = started
+    _open(client, h)
+    page = client.get(f"/labs/{sid}/")
+    csp = page.headers["content-security-policy"]
+    assert "style-src 'self'" in csp and "script-src 'self'" in csp
+    assert "unsafe-inline" not in csp and "frame-ancestors 'none'" in csp
+    # la API conserva la política estricta
+    assert client.get("/health").headers["content-security-policy"].startswith("default-src 'none'")
+
+
+def test_lab_page_loads_its_script_and_hides_internal_details(client, started):
+    h, sid = started
+    _open(client, h)
+    page = client.get(f"/labs/{sid}/").text
+    assert f'src="/labs/{sid}/static/lab.js"' in page
+    assert client.get(f"/labs/{sid}/static/lab.js").status_code == 200
+    assert "192.168." not in page and "docker compose" not in page

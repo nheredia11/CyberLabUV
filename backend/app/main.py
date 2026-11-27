@@ -72,7 +72,15 @@ async def add_security_headers(request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    if request.url.path.startswith("/labs/"):
+        # Páginas de laboratorio (proxy): estilos y el script propio del laboratorio sí;
+        # scripts en línea NO, para que un XSS didáctico no se ejecute en el origen de la plataforma.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; "
+            "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+        )
+    else:
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
     if request.url.path.startswith("/api"):
         response.headers["Cache-Control"] = "no-store"
     return response
