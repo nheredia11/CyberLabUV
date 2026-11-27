@@ -333,11 +333,11 @@ export default function LearningRoute(props) {
             <p>Ingresa los resultados obtenidos durante tu Práctica Real. Esto nos ayudará a evaluar cualitativamente tu progreso.</p>
           </div>
           
-          <div className="checkpoints-form" style={{ background: '#161b22', padding: '24px', borderRadius: '8px', marginTop: '20px', border: '1px solid #30363d' }}>
+          <div className="checkpoints-form" style={{ background: 'var(--surface)', padding: '24px', borderRadius: '8px', marginTop: '20px', border: '1px solid var(--line)' }}>
             {moduleData?.checkpoints ? (
               moduleData.checkpoints.map((cp, idx) => (
                 <div key={idx} style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', color: '#c9d1d9', fontWeight: 'bold', marginBottom: '8px' }}>
+                  <label style={{ display: 'block', color: 'var(--ink)', fontWeight: 'bold', marginBottom: '8px' }}>
                     🚩 Pregunta {idx + 1}: {cp.question || cp.pregunta || `Checkpoint ${idx + 1}`}
                   </label>
                   <input 
@@ -345,16 +345,16 @@ export default function LearningRoute(props) {
                     placeholder="Escribe tu respuesta o flag aquí..." 
                     value={answers[cp.id || idx] || ""}
                     onChange={(e) => setAnswers({...answers, [cp.id || idx]: e.target.value})}
-                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #30363d', background: '#0d1117', color: '#58a6ff', fontFamily: 'monospace', outline: 'none' }} 
+                    style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--surface-sunken)', color: 'var(--link)', fontFamily: 'monospace', outline: 'none' }} 
                   />
                 </div>
               ))
             ) : (
-              <p style={{ color: '#8b949e' }}>No hay checkpoints configurados para este escenario.</p>
+              <p style={{ color: 'var(--ink-muted)' }}>No hay checkpoints configurados para este escenario.</p>
             )}
             
             {checkpointMessage.text && (
-              <div style={{ marginBottom: '15px', padding: '10px', borderRadius: '4px', background: checkpointMessage.type === 'error' ? '#f8514920' : '#2ea04320', color: checkpointMessage.type === 'error' ? '#ff7b72' : '#3fb950', border: `1px solid ${checkpointMessage.type === 'error' ? '#f85149' : '#2ea043'}` }}>
+              <div style={{ marginBottom: '15px', padding: '10px', borderRadius: '4px', background: checkpointMessage.type === 'error' ? 'var(--err)20' : 'var(--btn-ok)20', color: checkpointMessage.type === 'error' ? 'var(--coral)' : 'var(--ok)', border: `1px solid ${checkpointMessage.type === 'error' ? 'var(--err)' : 'var(--btn-ok)'}` }}>
                 {checkpointMessage.text}
               </div>
             )}
@@ -362,7 +362,7 @@ export default function LearningRoute(props) {
             <button 
               type="button"
               disabled={isSubmitting}
-              style={{ padding: '12px 24px', background: isSubmitting ? '#555' : '#238636', color: '#ffffff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: isSubmitting ? 'not-allowed' : 'pointer', transition: '0.2s' }}
+              style={{ padding: '12px 24px', background: isSubmitting ? '#555' : 'var(--btn-ok)', color: '#ffffff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: isSubmitting ? 'not-allowed' : 'pointer', transition: '0.2s' }}
               onClick={handleSubmitCheckpoints}
             >
               {isSubmitting ? "Enviando evidencias..." : "Enviar Evidencias"}
@@ -380,7 +380,7 @@ export default function LearningRoute(props) {
           </div>
 
           {surveyMessage && (
-            <div style={{ marginBottom: '20px', padding: '12px', borderRadius: '6px', background: surveyMessage.includes('❌') ? '#f8514920' : '#2ea04320', color: surveyMessage.includes('❌') ? '#ff7b72' : '#3fb950', border: `1px solid ${surveyMessage.includes('❌') ? '#f85149' : '#2ea043'}` }}>
+            <div style={{ marginBottom: '20px', padding: '12px', borderRadius: '6px', background: surveyMessage.includes('❌') ? 'var(--err)20' : 'var(--btn-ok)20', color: surveyMessage.includes('❌') ? 'var(--coral)' : 'var(--ok)', border: `1px solid ${surveyMessage.includes('❌') ? 'var(--err)' : 'var(--btn-ok)'}` }}>
               {surveyMessage}
             </div>
           )}
@@ -389,13 +389,13 @@ export default function LearningRoute(props) {
             {(moduleData?.survey || []).map((question) => {
               const type = question.tipo || question.type;
               return (
-                <div key={question.id} style={{ background: '#161b22', padding: '15px', borderRadius: '6px', border: '1px solid #30363d' }}>
-                  <span style={{ display: 'block', marginBottom: '10px', color: '#c9d1d9', fontWeight: 'bold' }}>{question.pregunta || question.question}</span>
+                <div key={question.id} style={{ background: 'var(--surface)', padding: '15px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                  <span style={{ display: 'block', marginBottom: '10px', color: 'var(--ink)', fontWeight: 'bold' }}>{question.pregunta || question.question}</span>
                   {type === "likert_1_5" ? (
                     <select
                       value={surveyAnswers[question.id] || "5"}
                       onChange={(e) => setSurveyAnswers({ ...surveyAnswers, [question.id]: e.target.value })}
-                      style={{ width: '100%', padding: '8px', borderRadius: '4px', background: '#0d1117', color: '#c9d1d9', border: '1px solid #30363d' }}
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', background: 'var(--surface-sunken)', color: 'var(--ink)', border: '1px solid var(--line)' }}
                     >
                       <option value="5">5 · Totalmente de acuerdo</option>
                       <option value="4">4 · De acuerdo</option>
@@ -408,20 +408,20 @@ export default function LearningRoute(props) {
                       value={surveyAnswers[question.id] || ""}
                       onChange={(e) => setSurveyAnswers({ ...surveyAnswers, [question.id]: e.target.value })}
                       placeholder="Escribe tu respuesta..."
-                      style={{ width: '100%', padding: '8px', borderRadius: '4px', background: '#0d1117', color: '#c9d1d9', border: '1px solid #30363d', minHeight: '60px' }}
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', background: 'var(--surface-sunken)', color: 'var(--ink)', border: '1px solid var(--line)', minHeight: '60px' }}
                     />
                   )}
                 </div>
               );
             })}
             
-            <div style={{ background: '#161b22', padding: '15px', borderRadius: '6px', border: '1px solid #30363d' }}>
-              <span style={{ display: 'block', marginBottom: '10px', color: '#c9d1d9', fontWeight: 'bold' }}>Comentario general</span>
+            <div style={{ background: 'var(--surface)', padding: '15px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+              <span style={{ display: 'block', marginBottom: '10px', color: 'var(--ink)', fontWeight: 'bold' }}>Comentario general</span>
               <textarea
                 value={surveyAnswers.comments || ""}
                 onChange={(e) => setSurveyAnswers({ ...surveyAnswers, comments: e.target.value })}
                 placeholder="Describe qué fue claro, qué fue difícil o qué reforzarías."
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', background: '#0d1117', color: '#c9d1d9', border: '1px solid #30363d', minHeight: '80px' }}
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', background: 'var(--surface-sunken)', color: 'var(--ink)', border: '1px solid var(--line)', minHeight: '80px' }}
               />
             </div>
           </div>
@@ -430,18 +430,18 @@ export default function LearningRoute(props) {
             type="button"
             onClick={handleSubmitSurvey}
             disabled={savingSurvey}
-            style={{ padding: '12px 24px', background: savingSurvey ? '#555' : '#1f6feb', color: '#ffffff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: savingSurvey ? 'not-allowed' : 'pointer' }}
+            style={{ padding: '12px 24px', background: savingSurvey ? '#555' : 'var(--btn-primary)', color: '#ffffff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: savingSurvey ? 'not-allowed' : 'pointer' }}
           >
             {savingSurvey ? "Guardando encuesta..." : "Guardar encuesta"}
           </button>
 
           {/* Renderizado limpio de Retroalimentación del Docente */}
           {feedback && Object.keys(feedback).length > 0 && (
-            <article style={{ marginTop: '30px', padding: '20px', background: '#23863615', borderLeft: '4px solid #2ea043', borderRadius: '4px' }}>
-              <h3 style={{ color: '#3fb950', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <article style={{ marginTop: '30px', padding: '20px', background: 'var(--btn-ok)15', borderLeft: '4px solid var(--btn-ok)', borderRadius: '4px' }}>
+              <h3 style={{ color: 'var(--ok)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 👨‍🏫 Retroalimentación del Docente
               </h3>
-              <p style={{ color: '#c9d1d9', lineHeight: '1.6', margin: 0 }}>
+              <p style={{ color: 'var(--ink)', lineHeight: '1.6', margin: 0 }}>
                 {feedback.message || feedback.feedback || "Revisa tus evidencias en el panel de resultados."}
               </p>
             </article>

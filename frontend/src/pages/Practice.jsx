@@ -242,21 +242,21 @@ export default function Practice({
   return (
     <section className="practice-shell" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      <div className="practice-hero" style={{ background: '#161b22', padding: '24px', borderRadius: '8px', border: '1px solid #30363d' }}>
-        <span className="eyebrow" style={{ color: '#8b949e', textTransform: 'uppercase', fontSize: '12px' }}>Práctica local controlada</span>
-        <h2 style={{ color: '#c9d1d9', marginTop: '5px' }}>{scenarioId} · Laboratorio CyberLab</h2>
-        <p style={{ color: '#8b949e' }}>
+      <div className="practice-hero" style={{ background: 'var(--surface)', padding: '24px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+        <span className="eyebrow" style={{ color: 'var(--ink-muted)', textTransform: 'uppercase', fontSize: '12px' }}>Práctica local controlada</span>
+        <h2 style={{ color: 'var(--ink)', marginTop: '5px' }}>{scenarioId} · Laboratorio CyberLab</h2>
+        <p style={{ color: 'var(--ink-muted)' }}>
           Inicia el escenario Docker, revisa el objetivo y ejecuta comandos autorizados.
         </p>
 
         <div className="practice-meta-grid" style={{ display: 'flex', gap: '20px', marginTop: '15px' }}>
-          <article style={{ background: '#0d1117', padding: '10px 15px', borderRadius: '6px', border: '1px solid #30363d', flex: 1 }}>
-            <span style={{ fontSize: '12px', color: '#8b949e', display: 'block' }}>Usuario</span>
-            <strong style={{ color: '#c9d1d9' }}>{userId}</strong>
+          <article style={{ background: 'var(--surface-sunken)', padding: '10px 15px', borderRadius: '6px', border: '1px solid var(--line)', flex: 1 }}>
+            <span style={{ fontSize: '12px', color: 'var(--ink-muted)', display: 'block' }}>Usuario</span>
+            <strong style={{ color: 'var(--ink)' }}>{userId}</strong>
           </article>
-          <article style={{ background: '#0d1117', padding: '10px 15px', borderRadius: '6px', border: '1px solid #30363d', flex: 1 }}>
-            <span style={{ fontSize: '12px', color: '#8b949e', display: 'block' }}>Escenario Activo</span>
-            <strong style={{ color: '#58a6ff' }}>{scenarioId}</strong>
+          <article style={{ background: 'var(--surface-sunken)', padding: '10px 15px', borderRadius: '6px', border: '1px solid var(--line)', flex: 1 }}>
+            <span style={{ fontSize: '12px', color: 'var(--ink-muted)', display: 'block' }}>Escenario Activo</span>
+            <strong style={{ color: 'var(--link)' }}>{scenarioId}</strong>
           </article>
         </div>
       </div>
@@ -264,9 +264,9 @@ export default function Practice({
       <div className="practice-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         
         {/* PANEL DE CONTROL DOCKER */}
-        <article className="practice-card" style={{ background: '#161b22', padding: '20px', borderRadius: '8px', border: '1px solid #30363d' }}>
-          <h3 style={{ color: '#c9d1d9', marginBottom: '10px' }}>🐳 Control del Escenario</h3>
-          <p style={{ color: '#8b949e', fontSize: '13px', marginBottom: '15px' }}>
+        <article className="practice-card" style={{ background: 'var(--surface)', padding: '20px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+          <h3 style={{ color: 'var(--ink)', marginBottom: '10px' }}>🐳 Control del Escenario</h3>
+          <p style={{ color: 'var(--ink-muted)', fontSize: '13px', marginBottom: '15px' }}>
             Gestiona el ciclo de vida de los contenedores Docker en tu entorno local.
           </p>
 
@@ -277,9 +277,9 @@ export default function Practice({
                 type="button"
                 style={{ 
                   padding: '10px', 
-                  background: action === 'start' ? '#238636' : action === 'stop' ? '#da3633' : '#21262d', 
-                  color: '#fff', 
-                  border: '1px solid #30363d', 
+                  background: action === 'start' ? 'var(--btn-ok)' : action === 'stop' ? 'var(--err)' : 'var(--surface-raised)', 
+                  color: (action === 'start' || action === 'stop') ? '#fff' : 'var(--ink)', 
+                  border: '1px solid var(--line)', 
                   borderRadius: '6px', 
                   cursor: loadingAction ? 'wait' : 'pointer',
                   fontWeight: 'bold',
@@ -303,8 +303,8 @@ export default function Practice({
               width: '100%',
               textAlign: 'center', 
               padding: '10px', 
-              background: dynamicLabUrl ? '#1f6feb' : '#21262d', 
-              color: dynamicLabUrl ? '#fff' : '#8b949e', 
+              background: dynamicLabUrl ? 'var(--btn-primary)' : 'var(--surface-raised)', 
+              color: dynamicLabUrl ? '#fff' : 'var(--ink-muted)', 
               border: 'none',
               borderRadius: '6px', 
               fontWeight: 'bold',
@@ -317,24 +317,24 @@ export default function Practice({
         </article>
 
         {/* PANEL DE COMANDOS */}
-        <article className="practice-card" style={{ background: '#161b22', padding: '20px', borderRadius: '8px', border: '1px solid #30363d' }}>
-          <h3 style={{ color: '#c9d1d9', marginBottom: '10px' }}>⌨️ Terminal Guiada</h3>
-          <p style={{ color: '#8b949e', fontSize: '13px', marginBottom: '15px' }}>
+        <article className="practice-card" style={{ background: 'var(--surface)', padding: '20px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+          <h3 style={{ color: 'var(--ink)', marginBottom: '10px' }}>⌨️ Terminal Guiada</h3>
+          <p style={{ color: 'var(--ink-muted)', fontSize: '13px', marginBottom: '15px' }}>
             Ejecuta comandos de reconocimiento y explotación desde la máquina atacante.
             {!dynamicLabUrl && (
-              <strong style={{ display: 'block', marginTop: '6px', color: '#d29922' }}>
+              <strong style={{ display: 'block', marginTop: '6px', color: 'var(--warn)' }}>
                 Inicia el escenario para habilitar la terminal.
               </strong>
             )}
           </p>
 
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', color: '#c9d1d9', fontSize: '13px', marginBottom: '5px' }}>Comando sugerido (Lista Blanca)</label>
+            <label style={{ display: 'block', color: 'var(--ink)', fontSize: '13px', marginBottom: '5px' }}>Comando sugerido (Lista Blanca)</label>
             <div style={{ display: 'flex', gap: '10px' }}>
               <select
                 value={selectedCommand}
                 onChange={(event) => setSelectedCommand(event.target.value)}
-                style={{ flex: 1, padding: '10px', background: '#0d1117', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px' }}
+                style={{ flex: 1, padding: '10px', background: 'var(--surface-sunken)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '6px' }}
               >
                 {commands.length === 0 && <option value="">No hay comandos definidos</option>}
                 {commands.map((command) => (
@@ -345,7 +345,7 @@ export default function Practice({
                 type="button"
                 onClick={() => handleTerminalCommand(selectedCommand)}
                 disabled={loadingCommand || Boolean(loadingAction) || !selectedCommand || !dynamicLabUrl}
-                style={{ padding: '10px 15px', background: '#2ea043', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                style={{ padding: '10px 15px', background: 'var(--btn-ok)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
               >
                 {loadingCommand ? "..." : "Ejecutar"}
               </button>
@@ -353,19 +353,19 @@ export default function Practice({
           </div>
 
           <div>
-            <label style={{ display: 'block', color: '#c9d1d9', fontSize: '13px', marginBottom: '5px' }}>Comando personalizado</label>
+            <label style={{ display: 'block', color: 'var(--ink)', fontSize: '13px', marginBottom: '5px' }}>Comando personalizado</label>
             <div style={{ display: 'flex', gap: '10px' }}>
               <input
                 value={customCommand}
                 onChange={(event) => setCustomCommand(event.target.value)}
                 placeholder="Ej: nmap -sC recon-lab"
-                style={{ flex: 1, padding: '10px', background: '#0d1117', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', fontFamily: 'monospace' }}
+                style={{ flex: 1, padding: '10px', background: 'var(--surface-sunken)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '6px', fontFamily: 'monospace' }}
               />
               <button
                 type="button"
                 onClick={() => handleTerminalCommand(customCommand)}
                 disabled={loadingCommand || Boolean(loadingAction) || !customCommand.trim() || !dynamicLabUrl}
-                style={{ padding: '10px 15px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer' }}
+                style={{ padding: '10px 15px', background: 'var(--surface-raised)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '6px', cursor: 'pointer' }}
               >
                 Lanzar
               </button>
@@ -376,16 +376,16 @@ export default function Practice({
 
       {/* CONSOLA DE SALIDA LIMPIA (TIPO LINUX) */}
       <article className="practice-console" style={{ marginTop: '10px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#21262d', padding: '10px 15px', borderTopLeftRadius: '8px', borderTopRightRadius: '8px', border: '1px solid #30363d', borderBottom: 'none' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-raised)', padding: '10px 15px', borderTopLeftRadius: '8px', borderTopRightRadius: '8px', border: '1px solid var(--line)', borderBottom: 'none' }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f56' }}></span>
             <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e' }}></span>
             <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#27c93f' }}></span>
           </div>
-          <strong style={{ color: '#8b949e', fontSize: '12px', fontFamily: 'monospace' }}>cyberlab@atacante:~</strong>
+          <strong style={{ color: 'var(--ink-muted)', fontSize: '12px', fontFamily: 'monospace' }}>cyberlab@atacante:~</strong>
           <button 
             onClick={clearConsole}
-            style={{ background: 'transparent', border: 'none', color: '#58a6ff', fontSize: '12px', cursor: 'pointer' }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--link)', fontSize: '12px', cursor: 'pointer' }}
           >
             Limpiar (clear)
           </button>
@@ -394,7 +394,7 @@ export default function Practice({
         <pre style={{ 
           margin: 0, 
           background: '#0d1117', 
-          color: '#3fb950', 
+          color: 'var(--ok)', 
           padding: '20px', 
           minHeight: '250px', 
           maxHeight: '400px', 
@@ -404,10 +404,10 @@ export default function Practice({
           lineHeight: '1.5',
           borderBottomLeftRadius: '8px', 
           borderBottomRightRadius: '8px', 
-          border: '1px solid #30363d' 
+          border: '1px solid var(--line)' 
         }}>
           {outputHistory.map((line, idx) => (
-            <div key={idx} style={{ whiteSpace: 'pre-wrap', color: line.startsWith('[ERROR]') ? '#ff7b72' : line.includes('SEGURIDAD:') ? '#d2a8ff' : '#3fb950' }}>
+            <div key={idx} style={{ whiteSpace: 'pre-wrap', color: line.startsWith('[ERROR]') ? 'var(--coral)' : line.includes('SEGURIDAD:') ? 'var(--violet)' : 'var(--ok)' }}>
               {line}
             </div>
           ))}
