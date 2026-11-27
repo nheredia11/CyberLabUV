@@ -13,16 +13,18 @@ const tools = [
   { id: 'quality', label: 'Cadena de calidad', icon: Activity },
 ];
 
-export default function Sidebar({ view, setView, theme, setTheme }) {
+export default function Sidebar({ view, setView, theme, setTheme, userRole }) {
+  // El docente solo ve su panel; el estudiante nunca ve el panel docente.
+  const visibleItems = items.filter((item) => (userRole === 'teacher' ? item.id === 'teacher' : item.id !== 'teacher'));
   const render = (item) => {
     const Icon = item.icon;
     return <button key={item.id} className={`nav-item ${view === item.id ? 'active' : ''}`} onClick={() => setView(item.id)}><Icon size={18}/>{item.label}</button>;
   };
   return <aside className="sidebar">
     <div className="brand"><div className="logo"><Shield size={24}/></div><div><div>CyberLab</div><small>Simulador de ciberseguridad</small></div></div>
-    <div className="nav-group"><div className="nav-title">Navegación</div>{items.map(render)}</div>
+    <div className="nav-group"><div className="nav-title">Navegación</div>{visibleItems.map(render)}</div>
     <div className="nav-group"><div className="nav-title">Herramientas</div>{tools.map(render)}</div>
     <button className="nav-item" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={18}/> : <Moon size={18}/>}Modo {theme === 'dark' ? 'claro' : 'oscuro'}</button>
-    <div className="sync-card"><strong>Sincronización local</strong><p>App local activa<br/>Sync automática cada 30 seg.</p><button className="btn secondary" onClick={() => setView('practice')}>Ver estado</button></div>
+    <div className="sync-card"><strong>Sincronización local</strong><p>Laboratorios locales con Docker.</p><button className="btn secondary" onClick={() => setView('practice')}>Ver estado</button></div>
   </aside>;
 }

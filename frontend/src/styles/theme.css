@@ -27,6 +27,18 @@
   --border: #1e395c;
   --shadow: 0 18px 45px rgba(0, 0, 0, .25);
 }
+
+/* ---- Tokens semánticos de superficie (dark = valores previos; light = nuevos) ---- */
+:root {
+  --surface: #ffffff; --surface-sunken: #f1f5f9; --surface-raised: #e8eef6; --line: #d3dcea;
+  --ink: #1e293b; --ink-muted: #5b6b80; --link: #1554a4; --ok: #15803d; --btn-ok: #15803d;
+  --btn-primary: #1554a4; --violet: #6d28d9; --coral: #c2410c; --err: #b91c1c; --warn: #a16207;
+}
+[data-theme="dark"] {
+  --surface: #161b22; --surface-sunken: #0d1117; --surface-raised: #21262d; --line: #30363d;
+  --ink: #c9d1d9; --ink-muted: #8b949e; --link: #58a6ff; --ok: #3fb950; --btn-ok: #238636;
+  --btn-primary: #1f6feb; --violet: #d2a8ff; --coral: #ff7b72; --err: #f85149; --warn: #e3b341;
+}
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); }
 button, input, textarea, select { font: inherit; }
@@ -498,7 +510,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   gap: 7px;
   padding: 10px 13px;
   background: #07111f;
-  color: #dbeafe;
+  color: var(--text);
 }
 
 .terminal-header span {
@@ -969,7 +981,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   gap: 7px;
   padding: 11px 14px;
   background: #07111f;
-  color: #dbeafe;
+  color: var(--text);
 }
 
 .terminal-top span {
@@ -4549,7 +4561,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   gap: 7px;
   padding: 11px 14px;
   background: #07111f;
-  color: #dbeafe;
+  color: var(--text);
 }
 
 .route-pro-terminal-top span {
@@ -4712,7 +4724,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   border-radius: 28px;
   background:
     radial-gradient(circle at top right, rgba(96, 165, 250, 0.14), transparent 42%),
-    rgba(13, 27, 49, 0.88);
+    color-mix(in srgb, var(--panel) 88%, transparent);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
 }
 
@@ -4743,7 +4755,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   padding: 18px;
   border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
   border-radius: 22px;
-  background: rgba(6, 17, 32, 0.45);
+  background: color-mix(in srgb, var(--surface-sunken) 45%, transparent);
 }
 
 .summary-kpi {
@@ -4805,7 +4817,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   padding: 24px;
   border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
   border-radius: 24px;
-  background: rgba(13, 27, 49, 0.72);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
 }
 
 .section-heading {
@@ -4828,9 +4840,9 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   width: fit-content;
   padding: 7px 11px;
   border-radius: 999px;
-  background: rgba(96, 165, 250, 0.14);
-  color: #dbeafe;
-  border: 1px solid rgba(96, 165, 250, 0.22);
+  background: rgba(77, 163, 255, 0.14);
+  color: var(--primary);
+  border: 1px solid rgba(77, 163, 255, 0.30);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -4869,8 +4881,8 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
 .markdown-content code {
   padding: 2px 6px;
   border-radius: 8px;
-  background: rgba(6, 17, 32, 0.85);
-  color: #dbeafe;
+  background: color-mix(in srgb, var(--surface-sunken) 85%, transparent);
+  color: var(--text);
 }
 
 .practice-hero {
@@ -4944,7 +4956,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   margin: -18px -18px 14px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border, rgba(148, 163, 184, 0.22));
-  background: rgba(6, 17, 32, 0.75);
+  background: color-mix(in srgb, var(--surface-sunken) 75%, transparent);
 }
 
 .console-head span {
@@ -4975,8 +4987,8 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   margin: 0;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(6, 17, 32, 0.92);
-  color: #dbeafe;
+  background: color-mix(in srgb, var(--surface-sunken) 92%, transparent);
+  color: var(--text);
   white-space: pre-wrap;
 }
 
@@ -5029,7 +5041,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   padding: 6px 10px;
   border-radius: 999px;
   background: rgba(96, 165, 250, 0.14);
-  color: #dbeafe;
+  color: var(--text);
   font-size: 12px;
   font-weight: 800;
 }
@@ -5052,7 +5064,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   min-height: 44px;
   border: 1px solid var(--border, rgba(148, 163, 184, 0.22));
   border-radius: 14px;
-  background: rgba(6, 17, 32, 0.92);
+  background: color-mix(in srgb, var(--surface-sunken) 92%, transparent);
   color: var(--text, #eef5ff);
   padding: 12px;
 }
@@ -5091,7 +5103,7 @@ textarea, input, select { border: 1px solid var(--border); border-radius: 14px; 
   border-radius: 14px;
   background: rgba(96, 165, 250, 0.12);
   border: 1px solid rgba(96, 165, 250, 0.25);
-  color: #dbeafe;
+  color: var(--text);
 }
 
 .feedback-box {

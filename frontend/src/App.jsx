@@ -117,12 +117,17 @@ export default function App() {
     />;
   }
 
-  const [title, subtitle] = titles[view] || titles.dashboard;
+  // Si la vista no corresponde al rol (p. ej. un estudiante en 'teacher'), se vuelve al inicio.
+  const allowed = user.role === 'teacher'
+    ? ['teacher', 'resources', 'templates', 'quality']
+    : ['dashboard', 'route', 'practice', 'results', 'resources', 'templates', 'quality'];
+  const currentView = allowed.includes(view) ? view : allowed[0];
+  const [title, subtitle] = titles[currentView] || titles.dashboard;
 
   return (
     <div className="app-shell">
       <Sidebar
-        view={view}
+        view={currentView}
         setView={setView}
         theme={theme}
         setTheme={setTheme}
@@ -137,7 +142,7 @@ export default function App() {
           onLogout={handleLogout}
         />
 
-        {view === 'dashboard' && (
+        {currentView === 'dashboard' && (
           <Dashboard
             data={dashboard}
             user={user}
@@ -148,7 +153,7 @@ export default function App() {
           />
         )}
 
-        {view === 'route' && user.role !== 'teacher' && (
+        {currentView === 'route' && user.role !== 'teacher' && (
           <LearningRoute
             selectedModule={selectedModule}
             setSelectedModule={setSelectedModule}
@@ -158,9 +163,9 @@ export default function App() {
           />
         )}
 
-        {view === 'practice' && user.role !== 'teacher' && <Practice userId={userId} />}
+        {currentView === 'practice' && user.role !== 'teacher' && <Practice userId={userId} />}
 
-        {view === 'results' && user.role !== 'teacher' && (
+        {currentView === 'results' && user.role !== 'teacher' && (
           <Results
             data={dashboard}
             user={user}
@@ -168,11 +173,11 @@ export default function App() {
           />
         )}
         
-        {view === 'teacher' && user.role === 'teacher' && <TeacherAnalytics />}
+        {currentView === 'teacher' && user.role === 'teacher' && <TeacherAnalytics />}
 
-        {view === 'resources' && <Resources />}
-        {view === 'templates' && <Templates />}
-        {view === 'quality' && <Quality />}
+        {currentView === 'resources' && <Resources />}
+        {currentView === 'templates' && <Templates />}
+        {currentView === 'quality' && <Quality />}
       </main>
     </div>
   );

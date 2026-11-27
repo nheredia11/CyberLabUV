@@ -238,7 +238,7 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
           ) : (
             <div className="google-pending-card modern" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ textAlign: 'center', marginBottom: '15px' }}>
-                <strong style={{ color: '#e3b341' }}>Modo Desarrollo Local ⚠️</strong>
+                <strong style={{ color: 'var(--warn)' }}>Modo Desarrollo Local ⚠️</strong>
                 <p>Google Auth no configurado. Selector de rol habilitado para pruebas.</p>
               </div>
 
@@ -246,25 +246,25 @@ export default function Login({ onLogin, theme = 'light', setTheme }) {
                 <button 
                   type="button"
                   onClick={() => setSelectedRole('student')}
-                  style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'student' ? '#2ea043' : '#30363d'}`, borderRadius: '8px', background: selectedRole === 'student' ? '#2ea04315' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
+                  style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'student' ? 'var(--btn-ok)' : 'var(--line)'}`, borderRadius: '8px', background: selectedRole === 'student' ? 'var(--btn-ok)15' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
                 >
-                  <User size={24} color={selectedRole === 'student' ? '#2ea043' : '#8b949e'} />
+                  <User size={24} color={selectedRole === 'student' ? 'var(--btn-ok)' : 'var(--ink-muted)'} />
                   <strong style={{ fontSize: '14px' }}>Estudiante</strong>
                 </button>
                 
                 <button 
                   type="button"
                   onClick={() => setSelectedRole('teacher')}
-                  style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'teacher' ? '#1f6feb' : '#30363d'}`, borderRadius: '8px', background: selectedRole === 'teacher' ? '#1f6feb15' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
+                  style={{ flex: 1, padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', border: `2px solid ${selectedRole === 'teacher' ? 'var(--btn-primary)' : 'var(--line)'}`, borderRadius: '8px', background: selectedRole === 'teacher' ? 'var(--btn-primary)15' : 'transparent', color: 'inherit', cursor: 'pointer', transition: '0.2s' }}
                 >
-                  <Users size={24} color={selectedRole === 'teacher' ? '#1f6feb' : '#8b949e'} />
+                  <Users size={24} color={selectedRole === 'teacher' ? 'var(--btn-primary)' : 'var(--ink-muted)'} />
                   <strong style={{ fontSize: '14px' }}>Docente</strong>
                 </button>
               </div>
 
               <button 
                 onClick={handleDevLogin}
-                style={{ width: '100%', padding: '12px', background: selectedRole === 'teacher' ? '#1f6feb' : '#2ea043', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '12px', background: selectedRole === 'teacher' ? 'var(--btn-primary)' : 'var(--btn-ok)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
               >
                 Entrar como {selectedRole === 'teacher' ? 'Docente' : 'Estudiante'} (Dev)
               </button>

@@ -121,21 +121,21 @@ export default function TeacherAnalytics({ onBack }) {
   return (
     <main className="learning-route-page" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', height: '100vh', boxSizing: 'border-box' }}>
       
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #30363d', paddingBottom: '15px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '15px' }}>
         <div>
-          <h1 style={{ color: '#c9d1d9', margin: 0 }}>Panel de Control Docente</h1>
-          <p style={{ color: '#8b949e', margin: '5px 0 0 0' }}>Seguimiento académico y calidad del simulador</p>
+          <h1 style={{ color: 'var(--ink)', margin: 0 }}>Panel de Control Docente</h1>
+          <p style={{ color: 'var(--ink-muted)', margin: '5px 0 0 0' }}>Seguimiento académico y calidad del simulador</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button 
             onClick={() => setActiveTab("evidences")}
-            style={{ padding: '10px 20px', background: activeTab === 'evidences' ? '#1f6feb' : '#21262d', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
+            style={{ padding: '10px 20px', background: activeTab === 'evidences' ? 'var(--btn-primary)' : 'var(--surface-raised)', color: activeTab === 'evidences' ? '#fff' : 'var(--ink)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
           >
             📋 Calificar Evidencias
           </button>
           <button 
             onClick={() => setActiveTab("metrics")}
-            style={{ padding: '10px 20px', background: activeTab === 'metrics' ? '#2ea043' : '#21262d', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
+            style={{ padding: '10px 20px', background: activeTab === 'metrics' ? 'var(--btn-ok)' : 'var(--surface-raised)', color: activeTab === 'metrics' ? '#fff' : 'var(--ink)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}
           >
             📊 Métricas del Curso
           </button>
@@ -146,7 +146,7 @@ export default function TeacherAnalytics({ onBack }) {
       {notification.show && (
         <div style={{ 
           position: 'fixed', top: '80px', right: '20px', zIndex: 1000,
-          background: notification.type === 'success' ? '#2ea043' : '#f85149',
+          background: notification.type === 'success' ? 'var(--btn-ok)' : 'var(--err)',
           color: '#fff', padding: '15px 25px', borderRadius: '8px',
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)', fontWeight: 'bold',
           animation: 'fadeIn 0.3s ease-in-out'
@@ -157,21 +157,21 @@ export default function TeacherAnalytics({ onBack }) {
 
       {activeTab === "evidences" && (
         <div style={{ display: 'flex', gap: '20px', flex: 1, overflow: 'hidden' }}>
-          <aside style={{ width: '300px', background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{ borderBottom: '1px solid #30363d', paddingBottom: '10px', marginBottom: '15px', color: '#c9d1d9' }}>👨‍🏫 Entregas Pendientes</h3>
+          <aside style={{ width: '300px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ borderBottom: '1px solid var(--line)', paddingBottom: '10px', marginBottom: '15px', color: 'var(--ink)' }}>👨‍🏫 Entregas Pendientes</h3>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {submissions.length === 0 ? (
-                <p style={{ color: '#8b949e' }}>No hay entregas registradas.</p>
+                <p style={{ color: 'var(--ink-muted)' }}>No hay entregas registradas.</p>
               ) : (
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                   {submissions.map((sub) => (
                     <li key={sub.id} style={{ marginBottom: '10px' }}>
                       <button
                         onClick={() => { setSelectedSubmission(sub); setFeedbackText(sub.feedback || ""); }}
-                        style={{ width: '100%', textAlign: 'left', padding: '12px', background: selectedSubmission?.id === sub.id ? '#1f6feb' : '#0d1117', color: selectedSubmission?.id === sub.id ? '#ffffff' : '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', transition: '0.2s' }}
+                        style={{ width: '100%', textAlign: 'left', padding: '12px', background: selectedSubmission?.id === sub.id ? 'var(--btn-primary)' : 'var(--surface-sunken)', color: selectedSubmission?.id === sub.id ? '#ffffff' : 'var(--ink)', border: '1px solid var(--line)', borderRadius: '6px', cursor: 'pointer', transition: '0.2s' }}
                       >
                         <strong style={{ display: 'block', wordBreak: 'break-all' }}>{sub.student_id}</strong>
-                        <span style={{ fontSize: '12px', color: selectedSubmission?.id === sub.id ? '#c1d4ff' : '#8b949e' }}>Módulo: {sub.module_id}</span>
+                        <span style={{ fontSize: '12px', color: selectedSubmission?.id === sub.id ? '#c1d4ff' : 'var(--ink-muted)' }}>Módulo: {sub.module_id}</span>
                       </button>
                     </li>
                   ))}
@@ -180,32 +180,32 @@ export default function TeacherAnalytics({ onBack }) {
             </div>
           </aside>
 
-          <section style={{ flex: 1, background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '24px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          <section style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '8px', padding: '24px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             {!selectedSubmission ? (
-              <div style={{ margin: 'auto', color: '#8b949e', textAlign: 'center' }}>
+              <div style={{ margin: 'auto', color: 'var(--ink-muted)', textAlign: 'center' }}>
                 <h2>Panel de Evaluación Cualitativa</h2>
                 <p>Selecciona un estudiante para revisar sus flags y enviar retroalimentación.</p>
               </div>
             ) : (
               <>
-                <h2 style={{ color: '#c9d1d9', marginBottom: '20px' }}>Evidencias de {selectedSubmission.student_id}</h2>
-                <div style={{ background: '#0d1117', padding: '15px', borderRadius: '6px', border: '1px solid #30363d', marginBottom: '20px' }}>
+                <h2 style={{ color: 'var(--ink)', marginBottom: '20px' }}>Evidencias de {selectedSubmission.student_id}</h2>
+                <div style={{ background: 'var(--surface-sunken)', padding: '15px', borderRadius: '6px', border: '1px solid var(--line)', marginBottom: '20px' }}>
                   {Object.entries(selectedSubmission.answers).map(([key, value]) => (
-                    <div key={key} style={{ marginBottom: '15px', borderBottom: '1px dashed #30363d', paddingBottom: '10px' }}>
-                      <strong style={{ color: '#8b949e', display: 'block', fontSize: '12px', marginBottom: '5px' }}>Pregunta / ID: {key}</strong>
-                      <span style={{ color: '#3fb950', fontFamily: 'monospace', fontSize: '15px', wordBreak: 'break-all' }}>{value}</span>
+                    <div key={key} style={{ marginBottom: '15px', borderBottom: '1px dashed var(--line)', paddingBottom: '10px' }}>
+                      <strong style={{ color: 'var(--ink-muted)', display: 'block', fontSize: '12px', marginBottom: '5px' }}>Pregunta / ID: {key}</strong>
+                      <span style={{ color: 'var(--ok)', fontFamily: 'monospace', fontSize: '15px', wordBreak: 'break-all' }}>{value}</span>
                     </div>
                   ))}
                 </div>
 
-                <div style={{ background: '#0d1117', padding: '20px', borderRadius: '8px', border: '1px solid #30363d' }}>
-                  <h3 style={{ marginBottom: '10px', color: '#c9d1d9' }}>💬 Redactar Retroalimentación</h3>
+                <div style={{ background: 'var(--surface-sunken)', padding: '20px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <h3 style={{ marginBottom: '10px', color: 'var(--ink)' }}>💬 Redactar Retroalimentación</h3>
                   {selectedSubmission.feedback && !feedbackText ? (
-                    <div style={{ padding: '15px', background: '#23863615', borderLeft: '4px solid #238636', color: '#c9d1d9', borderRadius: '4px' }}>
+                    <div style={{ padding: '15px', background: 'var(--btn-ok)15', borderLeft: '4px solid var(--btn-ok)', color: 'var(--ink)', borderRadius: '4px' }}>
                       <p style={{ margin: 0, lineHeight: '1.5' }}>{selectedSubmission.feedback}</p>
                       <button 
                         onClick={() => setFeedbackText(selectedSubmission.feedback)} 
-                        style={{ marginTop: '15px', background: 'transparent', border: '1px solid #30363d', color: '#58a6ff', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', transition: '0.2s' }}
+                        style={{ marginTop: '15px', background: 'transparent', border: '1px solid var(--line)', color: 'var(--link)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', transition: '0.2s' }}
                       >
                         Editar Feedback
                       </button>
@@ -216,13 +216,13 @@ export default function TeacherAnalytics({ onBack }) {
                         value={feedbackText}
                         onChange={(e) => setFeedbackText(e.target.value)}
                         placeholder="Escribe tu comentario orientador..."
-                        style={{ width: '100%', height: '120px', padding: '15px', background: '#161b22', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit' }}
+                        style={{ width: '100%', height: '120px', padding: '15px', background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit' }}
                       />
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px', gap: '10px' }}>
                         {selectedSubmission.feedback && (
                           <button 
                             onClick={() => setFeedbackText("")}
-                            style={{ padding: '10px 20px', background: 'transparent', color: '#8b949e', border: 'none', cursor: 'pointer' }}
+                            style={{ padding: '10px 20px', background: 'transparent', color: 'var(--ink-muted)', border: 'none', cursor: 'pointer' }}
                           >
                             Cancelar
                           </button>
@@ -230,7 +230,7 @@ export default function TeacherAnalytics({ onBack }) {
                         <button 
                           onClick={handleSendFeedback} 
                           disabled={isSubmitting || !feedbackText.trim()} 
-                          style={{ padding: '10px 24px', background: isSubmitting || !feedbackText.trim() ? '#21262d' : '#238636', color: '#fff', border: 'none', borderRadius: '6px', cursor: isSubmitting || !feedbackText.trim() ? 'not-allowed' : 'pointer', transition: '0.2s', fontWeight: 'bold' }}
+                          style={{ padding: '10px 24px', background: isSubmitting || !feedbackText.trim() ? 'var(--surface-raised)' : 'var(--btn-ok)', color: (isSubmitting || !feedbackText.trim()) ? 'var(--ink-muted)' : '#fff', border: 'none', borderRadius: '6px', cursor: isSubmitting || !feedbackText.trim() ? 'not-allowed' : 'pointer', transition: '0.2s', fontWeight: 'bold' }}
                         >
                           {isSubmitting ? "Enviando..." : "Enviar Retroalimentación"}
                         </button>
@@ -245,28 +245,28 @@ export default function TeacherAnalytics({ onBack }) {
       )}
 
       {activeTab === "metrics" && (
-        <section style={{ flex: 1, background: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '30px', display: 'flex', flexDirection: 'column' }}>
+        <section style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '8px', padding: '30px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ marginBottom: '30px' }}>
-            <h2 style={{ color: '#c9d1d9', margin: 0 }}>Resultados de Encuestas Estudiantiles</h2>
-            <p style={{ color: '#8b949e', marginTop: '5px' }}>Promedio de calificación (1 a 5) por módulo, calculado con las respuestas reales de los estudiantes.</p>
+            <h2 style={{ color: 'var(--ink)', margin: 0 }}>Resultados de Encuestas Estudiantiles</h2>
+            <p style={{ color: 'var(--ink-muted)', marginTop: '5px' }}>Promedio de calificación (1 a 5) por módulo, calculado con las respuestas reales de los estudiantes.</p>
           </div>
           
-          <div style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', padding: '20px' }}>
+          <div style={{ flex: 1, background: 'var(--surface-sunken)', border: '1px solid var(--line)', borderRadius: '8px', padding: '20px' }}>
             {surveyMetrics.length === 0 ? (
-              <p style={{ color: '#8b949e' }}>Aún no hay encuestas respondidas. Los promedios aparecerán cuando los estudiantes completen las encuestas del piloto.</p>
+              <p style={{ color: 'var(--ink-muted)' }}>Aún no hay encuestas respondidas. Los promedios aparecerán cuando los estudiantes completen las encuestas del piloto.</p>
             ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={surveyMetrics} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#30363d" vertical={false} />
-                <XAxis dataKey="name" stroke="#8b949e" tick={{fill: '#8b949e'}} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 5]} stroke="#8b949e" tick={{fill: '#8b949e'}} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+                <XAxis dataKey="name" stroke="var(--ink-muted)" tick={{fill: 'var(--ink-muted)'}} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 5]} stroke="var(--ink-muted)" tick={{fill: 'var(--ink-muted)'}} axisLine={false} tickLine={false} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#c9d1d9', borderRadius: '6px' }} 
-                  itemStyle={{ color: '#3fb950' }} 
-                  cursor={{fill: '#21262d'}}
+                  contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--line)', color: 'var(--ink)', borderRadius: '6px' }} 
+                  itemStyle={{ color: 'var(--ok)' }} 
+                  cursor={{fill: 'var(--surface-raised)'}}
                 />
                 <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                <Bar dataKey="score" name="Promedio (1-5)" fill="#2ea043" radius={[4, 4, 0, 0]} barSize={60} />
+                <Bar dataKey="score" name="Promedio (1-5)" fill="var(--btn-ok)" radius={[4, 4, 0, 0]} barSize={60} />
               </BarChart>
             </ResponsiveContainer>
             )}
